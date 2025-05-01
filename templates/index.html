@@ -3,7 +3,7 @@
 {% block title %}Home | Employee Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold m-4">Welcome to the Employee Dashboard, Girl!</h1>
+<h1 class="text-2xl font-bold m-4">Welcome to the Employee Dashboard!</h1>
 
 <div class="flex flex-row justify-items items-center">
     <div id="kpi" class="grid grid-cols-2 gap-4 bg-gray-100 rounded-lg shadow p-4 m-4">
@@ -32,8 +32,8 @@
 </div>
 
 <!-- Chart for Employee Distribution -->
-<div style="width: 50%; margin-top: 20px;">
+<div class="p-4 bg-gray-100 rounded-lg shadow">
     <h2>Employee Distribution</h2>
-    <canvas id="employeeChart"></canvas>
+    <canvas id="employeeChart" class="m-4 border border-black"></canvas>
 </div>
 {% endblock %}

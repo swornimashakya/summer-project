@@ -21,15 +21,15 @@ def index():
     attrition_rate = random.uniform(10, 30)  # Just a random number for now
     return render_template('index.html', attrition_rate=attrition_rate)
 
-# API endpoint for employee distribution data
-@app.route('/get_data')
-def get_data():
-    # Simulate data (replace with your actual model predictions or data)
-    data = {
-        "labels": ["Sales", "R&D", "HR"],  # Department names
-        "values": [50, 70, 30]  # Number of employees in each department
-    }
-    return jsonify(data)
+# # API endpoint for employee distribution data
+# @app.route('/get_data')
+# def get_data():
+#     # Simulate data (replace with your actual model predictions or data)
+#     data = {
+#         "labels": ["Sales", "R&D", "HR"],  # Department names
+#         "values": [50, 70, 30]  # Number of employees in each department
+#     }
+#     return jsonify(data)
 
 if __name__ == "__main__":
     app.run(debug=True)
