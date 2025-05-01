@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Home | Employee Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold m-4">Welcome to the Employee Dashboard, Girl!</h1>
+
+<div class="flex flex-row justify-items items-center">
+    <div id="kpi" class="grid grid-cols-2 gap-4 bg-gray-100 rounded-lg shadow p-4 m-4">
+        <div class="bg-blue-900 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">Total Employees</h2>
+            2456
+        </div>
+        <div class="bg-blue-600 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">Attrition Rate</h2>
+            {{ attrition_rate }}%
+        </div>
+        <div class="bg-red-500 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">On Leave</h2>
+            25
+        </div>
+        <div class="bg-purple-700 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">Gross Salary</h2>
+            $500,000
+        </div>
+    </div>
+
+    <div id="chart" class="p-4 bg-gray-100 rounded-lg shadow">
+        <h2 class="text-xl font-bold">Employee Distribution</h2>
+        <canvas id="employeeChart" class="m-4 border border-black"></canvas>
+    </div>
+</div>
+
+<!-- Chart for Employee Distribution -->
+<div style="width: 50%; margin-top: 20px;">
+    <h2>Employee Distribution</h2>
+    <canvas id="employeeChart"></canvas>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Employee Dashboard{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <header class="flex justify-between items-center bg-gray-800 text-white">
+        <a href="#" class="bg-gray-800 text-white text-3xl font-bold p-4">Microsoft</a>
+        <div class="flex flex-row items-center p-4">
+            <img src="https://via.placeholder.com/150" alt="Logo" class="rounded-full m-2" />
+            <div class="flex flex-col">
+                <h1 class="text-l font-bold">Swornima Shakya</h1>
+                <p class="text-sm">HR Manager</p>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex">
+        <aside class="w-64 h-screen bg-gray-800 text-white">
+            <ul>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Dashboard</a></li>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Employees</a></li>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Payroll</a></li>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Reports</a></li>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Recruitment</a></li>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Attrition</a></li>
+            </ul>
+            <ul class="w-64 absolute bottom-0">
+                <li class="p-4 hover:bg-gray-700"><a href="#">Settings</a></li>
+                <li class="p-4 hover:bg-gray-700"><a href="#">Logout</a></li>
+            </ul>
+        </aside>
+
+        <main class="flex-1 p-4 bg-blue-100">
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+    <script src="static\script.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<h1>Employee List</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Salary</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+            <tr>
+                <td>{{ employee[0] }}</td> <!-- Assuming ID is the first column -->
+                <td>{{ employee[1] }}</td> <!-- Assuming Name is the second column -->
+                <td>{{ employee[2] }}</td> <!-- Assuming Position is the third column -->
+                <td>{{ employee[3] }}</td> <!-- Assuming Salary is the fourth column -->
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
