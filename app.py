@@ -21,6 +21,22 @@ def index():
     attrition_rate = random.uniform(10, 30)  # Just a random number for now
     return render_template('index.html', attrition_rate=attrition_rate)
 
+@app.route('/employees')
+def employees():
+    employees = [
+        {"id": 1, "name": "Alice Johnson", "position": "Software Engineer", "department": "IT", "salary": "$85,000"},
+        {"id": 2, "name": "Bob Smith", "position": "Product Manager", "department": "Product", "salary": "$95,000"},
+        {"id": 3, "name": "Charlie Lee", "position": "Data Analyst", "department": "Analytics", "salary": "$70,000"},
+        {"id": 4, "name": "Diana King", "position": "HR Specialist", "department": "HR", "salary": "$60,000"},
+        {"id": 5, "name": "Ethan Brown", "position": "UX Designer", "department": "Design", "salary": "$75,000"},
+    ]
+    return render_template("employees.html", employees=employees)
+
+@app.route('/reports')
+def reports():
+
+    return render_template("reports.html")
+
 # # API endpoint for employee distribution data
 # @app.route('/get_data')
 # def get_data():

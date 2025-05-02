@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}SXC | Reports{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Reports</h1>
+{% endblock %}
+
+{% block content %}
+
+<div class="flex justify-between items-center mb-4">
+    <!-- Add Report Button -->
+    <a href="/add-report" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Add Report
+    </a>
+
+    <!-- Filter Dropdown -->
+    <div>
+        <label for="department-filter" class="mr-2 font-semibold">Filter by Department:</label>
+        <select id="department-filter" class="px-2 py-1 rounded border">
+            <option value="All">All</option>
+            <option value="IT">IT</option>
+            <option value="Product">Product</option>
+            <option value="Analytics">Analytics</option>
+            <option value="HR">HR</option>
+            <option value="Design">Design</option>
+        </select>
+    </div>
+</div>
+
+{% endblock %}

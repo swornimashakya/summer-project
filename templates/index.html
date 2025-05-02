@@ -1,39 +1,86 @@
 {% extends "base.html" %}
 
-{% block title %}Home | Employee Dashboard{% endblock %}
+{% block title %}SXC | Dashboard{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Dashboard</h1>
+{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold m-4">Welcome to the Employee Dashboard!</h1>
-
-<div class="flex flex-row justify-items items-center">
-    <div id="kpi" class="grid grid-cols-2 gap-4 bg-gray-100 rounded-lg shadow p-4 m-4">
-        <div class="bg-blue-900 text-white p-4 rounded-lg shadow-md">
-            <h2 class="text-xl font-bold">Total Employees</h2>
-            2456
+<div id="content" class="flex flex-col">
+    <!-- First Row -->
+    <div id="first-row" class="flex flex-row justify-between p-2 -m-1">
+        <div class="flex flex-col w-2/4 border border-black rounded-2xl p-12 mx-2">
+            <h2 class="text-lg font-semibold">Total Employees</h2>
+            <p class="text-4xl font-bold">2258</p>
         </div>
-        <div class="bg-blue-600 text-white p-4 rounded-lg shadow-md">
-            <h2 class="text-xl font-bold">Attrition Rate</h2>
-            {{ attrition_rate }}%
+        <div class="flex flex-col w-1/4 border border-black rounded-2xl p-12 mx-2">
+            <h2 class="text-lg font-semibold">Attrition Rate</h2>
+            <p class="text-4xl font-bold">5.7%</p>
         </div>
-        <div class="bg-red-500 text-white p-4 rounded-lg shadow-md">
-            <h2 class="text-xl font-bold">On Leave</h2>
-            25
+        <div class="flex flex-col w-1/4 border border-black rounded-2xl p-12 mx-2">
+            <h2 class="text-lg font-semibold">On Leave</h2>
+            <p class="text-4xl font-bold">11</p>
         </div>
-        <div class="bg-purple-700 text-white p-4 rounded-lg shadow-md">
-            <h2 class="text-xl font-bold">Gross Salary</h2>
-            $500,000
+        <div class="flex flex-col w-1/4 border border-black rounded-2xl p-12 mx-2">
+            <h2 class="text-lg font-semibold">Gross Salary</h2>
+            <p class="text-4xl font-bold">$500,000</p>
         </div>
     </div>
 
-    <div id="chart" class="p-4 bg-gray-100 rounded-lg shadow">
-        <h2 class="text-xl font-bold">Employee Distribution</h2>
-        <canvas id="employeeChart" class="m-4 border border-black"></canvas>
-    </div>
-</div>
+    <!-- Second Row -->
+    <div id="second-row" class="flex flex-row justify-between p-2 -m-1">
+        <div id="report-graph" class="w-1/2 border border-black rounded-2xl p-12 m-2">
+            <h2 class="text-lg font-semibold">Reports</h2>
+            <canvas id="employeeChart" class="border border-black">
 
-<!-- Chart for Employee Distribution -->
-<div class="p-4 bg-gray-100 rounded-lg shadow">
-    <h2>Employee Distribution</h2>
-    <canvas id="employeeChart" class="m-4 border border-black"></canvas>
-</div>
+            </canvas>
+        </div>
+        <div id="leave-req" class="w-1/2 p-12 border border-black rounded-2xl m-2">
+            <h2 class="text-lg font-semibold">Leave Requests</h2>
+            <table class="min-w-full divide-y divide-gray-200 mt-4">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for request in leave_requests %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ request.eid }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ request.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ request.department }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ request.leave_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ request.period }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Third Row -->
+     <div id="third-row" class="flex flex-row justify-between p-2 -m-1">
+        <div id="employees" class="flex flex-col w-1/3 border border-black rounded-2xl p-12 m-2">
+            <h2 class="text-lg font-semibold">Employee List</h2>
+
+        </div>
+        <div id="anniversary" class="flex flex-col w-1/3 border border-black rounded-2xl p-12 m-2">
+            <h2 class="text-lg font-semibold">Anniversaries</h2>
+
+        </div>
+        <div id="birthday" class="flex flex-col w-1/3 border border-black rounded-2xl p-12 m-2">
+            <h2 class="text-lg font-semibold">Birthdays</h2>
+            
+        </div>
+     </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}

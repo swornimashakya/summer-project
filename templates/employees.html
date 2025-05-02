@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}SXC | Employees{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Employees</h1>
+{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-4">
+    <!-- Add Employee Button -->
+    <a href="/add-employee" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Add Employee
+    </a>
+
+    <!-- Filter Dropdown -->
+    <div>
+        <label for="department-filter" class="mr-2 font-semibold">Filter by Department:</label>
+        <select id="department-filter" class="px-2 py-1 rounded border">
+            <option value="All">All</option>
+            <option value="IT">IT</option>
+            <option value="Product">Product</option>
+            <option value="Analytics">Analytics</option>
+            <option value="HR">HR</option>
+            <option value="Design">Design</option>
+        </select>
+    </div>
+</div>
+
+<!-- Employee Table -->
+<table class="min-w-full bg-white shadow rounded">
+    <thead class="bg-gray-200">
+        <tr>
+            <th class="py-2 px-4 text-left">ID</th>
+            <th class="py-2 px-4 text-left">Name</th>
+            <th class="py-2 px-4 text-left">Position</th>
+            <th class="py-2 px-4 text-left">Department</th>
+            <th class="py-2 px-4 text-left">Salary</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for employee in employees %}
+        <tr class="hover:bg-gray-100">
+            <td class="py-2 px-4">{{ employee.id }}</td>
+            <td class="py-2 px-4">{{ employee.name }}</td>
+            <td class="py-2 px-4">{{ employee.position }}</td>
+            <td class="py-2 px-4">{{ employee.department }}</td>
+            <td class="py-2 px-4">{{ employee.salary }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+{% endblock %}
+
+

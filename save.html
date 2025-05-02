@@ -1,0 +1,73 @@
+<div class="flex flex-row justify-items items-center">
+    <div id="kpi" class="grid grid-cols-2 gap-4 bg-gray-100 rounded-lg shadow p-4 m-4">
+        <div class="bg-blue-900 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">Total Employees</h2>
+            2456
+        </div>
+        <div class="bg-blue-600 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">Attrition Rate</h2>
+            {{ attrition_rate }}%
+        </div>
+        <div class="bg-red-500 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">On Leave</h2>
+            25
+        </div>
+        <div class="bg-purple-700 text-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">Gross Salary</h2>
+            $500,000
+        </div>
+    </div>
+
+    <div id="chart" class="p-4 bg-gray-100 rounded-lg shadow">
+        <h2 class="text-xl font-bold">Employee Distribution</h2>
+        <canvas id="employeeChart" class="m-4 border border-black"></canvas>
+    </div>
+</div>
+
+<!-- Chart for Employee Distribution -->
+<div class="p-4 bg-gray-100 rounded-lg shadow">
+    <h2>Employee Distribution</h2>
+    <canvas id="employeeChart" class="m-4 border border-black"></canvas>
+</div>
+
+
+
+
+
+<div id="report-graph">
+    <h2 class="text-lg font-semibold">Reports</h2>
+    <div class="flex flex-row justify-between p-2 mb-4">
+        <div class="flex flex-col w-1/2 border border-black rounded-2xl p-12 m-2">
+            <h3 class="text-lg font-semibold">Attrition Rate</h3>
+            <img src="{{ url_for('static', filename='images/attrition_rate.png') }}" alt="Attrition Rate Graph"
+                class="w-full h-auto mt-4" />
+        </div>
+    </div>
+    <div class="flex flex-col w-full border border-black rounded-2xl p-12 m-2">
+        <h2 class="text-lg font-semibold">Employee List</h2>
+        <table class="min-w-full divide-y divide-gray-200 mt-4">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Position</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for employee in employees %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ employee.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ employee.position }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ employee.department }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ employee.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+    </div>
+    </table>
+</div>
