@@ -1,11 +1,14 @@
 import mysql.connector
 
 print("Connecting to MySQL database...")
+
 connection = mysql.connector.connect(
-    host='localhost',         # Your MySQL host (usually localhost)
-    user='root',              # Your MySQL username
-    password='',         # Your MySQL root password
-    database='information_schema'    # Your database name (adjust it if it's different)
+    host="localhost",
+    user="root",
+    password="12345",
+    database="employee_db",
+    auth_plugin='mysql_native_password'
 )
 
-print("Connection successful")
+print("Connected successfully!")
+connection.close()

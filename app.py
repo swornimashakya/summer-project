@@ -1,18 +1,19 @@
 from flask import Flask, render_template, jsonify
 import random # For simulating data, remove in production
+import mysql.connector
 
 app = Flask(__name__)
 
 # Database connection function
-# def get_db_connection():
-#     connection = mysql.connector.connect(
-#         host='localhost',         # Your MySQL host (usually localhost)
-#         user='root',              # Your MySQL username
-#         password='',              # Your MySQL root password
-#         database='employee_db',    # Your database name (adjust it if it's different)
-#         port=3306           # Your MySQL port (default is 3306)
-#     )
-#     return connection
+def get_db_connection():
+    connection = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="12345",
+        database="employee_db",
+        auth_plugin='mysql_native_password'
+    )
+    return connection
 
 @app.route('/')
 def index():
@@ -23,13 +24,14 @@ def index():
 
 @app.route('/employees')
 def employees():
-    employees = [
-        {"id": 1, "name": "Alice Johnson", "position": "Software Engineer", "department": "IT", "salary": "$85,000"},
-        {"id": 2, "name": "Bob Smith", "position": "Product Manager", "department": "Product", "salary": "$95,000"},
-        {"id": 3, "name": "Charlie Lee", "position": "Data Analyst", "department": "Analytics", "salary": "$70,000"},
-        {"id": 4, "name": "Diana King", "position": "HR Specialist", "department": "HR", "salary": "$60,000"},
-        {"id": 5, "name": "Ethan Brown", "position": "UX Designer", "department": "Design", "salary": "$75,000"},
-    ]
+    # Connect to the database
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    # Fetch employee data from the database
+    cursor.execute("SELECT * FROM employees")
+    employees = cursor.fetchall()
+    # Close the database connection
+    cursor.close()
     return render_template("employees.html", employees=employees)
 
 @app.route('/reports')
