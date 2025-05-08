@@ -42,14 +42,18 @@ def login():
                 session['name'] = employee['name']
                 session['position'] = employee['position']
                 session['user_id'] = user['id']
-                return redirect(url_for('index'))
+                session['role'] = user['role']
+
+                if user['role'] == 'hr':
+                    return redirect(url_for('index'))  # HR sees index
+                else:
+                    return redirect(url_for('employee_view'))  # Employees see their page
         else:
             cursor.close()
             connection.close()
             return render_template('login.html', error="Invalid credentials")
 
     return render_template('login.html')
-
 
 @app.route('/index')
 def index():
@@ -121,6 +125,10 @@ def reports():
 
     return render_template("reports.html")
 
+@app.route('/employee_view')
+def employee_view():
+    return ("Employee View Page")
+    
 # # API endpoint for employee distribution data
 # @app.route('/get_data')
 # def get_data():
