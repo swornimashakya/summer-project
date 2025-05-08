@@ -1,0 +1,16 @@
+id,email,password,role,employee_id
+1,aashish@company.com,pass123,sales_executive,1
+2,aashra@company.com,pass123,research_scientist,2
+3,aditya@company.com,pass123,healthcare_representative,3
+4,aenish@company.com,pass123,manager,4
+5,anu@company.com,pass123,manufacturing_director,5
+6,apoorva@company.com,pass123,research_director,6
+7,ashika@company.com,pass123,sales_executive,7
+8,bardan@company.com,pass123,manager,8
+9,bibek@company.com,pass123,sales_representative,9
+10,bibek_kumar@company.com,pass123,research_scientist,10
+11,jugal@company.com,pass123,healthcare_representative,11
+12,kaushal@company.com,pass123,manager,12
+13,koshish@company.com,pass123,sales_executive,13
+14,krishnaangshu@company.com,pass123,research_scientist,14
+15,kritika@company.com,pass123,manufacturing_director,15

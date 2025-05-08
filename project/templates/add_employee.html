@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}SXC | Employees{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Add Employee</h1>
+{% endblock %}
+
+{% block content %}
+    <form action="{{ url_for('add_employee') }}" method="POST">
+        <div class="mb-4">
+            <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
+            <input type="text" id="name" name="name" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="position" class="block text-gray-700 text-sm font-bold mb-2">Position</label>
+            <input type="text" id="position" name="position" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="department" class="block text-gray-700 text-sm font-bold mb-2">Department</label>
+            <select id="department" name="department" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="" disabled selected>Select Department</option>
+                <option value="Sales">Sales</option>
+                <option value="R&D">R&D</option>
+                <option value="HR">HR</option>
+                <option value="IT">IT</option>
+                <option value="Analytics">Analytics</option>
+            </select>
+        </div>
+        
+        <div class="mb-4">
+            <label for="salary" class="block text-gray-700 text-sm font-bold mb-2">Salary</label>
+            <input type="number" id="salary" name="salary" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="date_joined" class="block text-gray-700 text-sm font-bold mb-2">Date Joined</label>
+            <input type="date" id="date_joined" name="date_joined" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class ="mb-4">
+            <label for="status" class="block text-gray-700 text-sm font-bold mb-2">Status</label>
+            <input type="radio" id="status" name="status" value="Active" checked class="m-2"> Active
+            <input type="radio" id="status" name="status" value="Left" class="m-2"> Left
+            <input type="radio" id="status" name="status" value="On Leave" class="m-2"> On Leave
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Employee</button>
+    </form>
+
+{% endblock %}

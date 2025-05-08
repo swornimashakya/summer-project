@@ -1,0 +1,16 @@
+id,name,age,position,department,salary,total_working_years,marital_status
+1,Aashish Maharjan,28,Sales Executive,Sales,55000,5,Single
+2,Aashra Pradhan,32,Research Scientist,Research & Development,60000,8,Married
+3,Aditya Thapa,30,Healthcare Representative,Sales,45000,6,Married
+4,Aenish Maharjan,27,Manager,Human Resources,70000,4,Single
+5,Anu Ujhanthachhen,26,Manufacturing Director,Sales,80000,7,Single
+6,Apoorva Ranjit,35,Research Director,Research & Development,85000,10,Divorced
+7,Ashika Balami,29,Sales Executive,Sales,53000,3,Single
+8,Bardan Khatiwada,33,Manager,Research & Development,78000,9,Married
+9,Bibek Shrestha,31,Sales Representative,Sales,48000,5,Single
+10,Bibek Kumar Paswan,32,Research Scientist,Research & Development,60000,8,Married
+11,Jugal Shrestha,28,Healthcare Representative,Sales,47000,6,Single
+12,Kaushal Bikram Gajmer,30,Manager,Human Resources,75000,5,Married
+13,Koshish KC,31,Sales Executive,Sales,52000,4,Divorced
+14,Krishnaangshu Rai,29,Research Scientist,Research & Development,62000,7,Single
+15,Kritika Khatiwada,34,Manufacturing Director,Sales,83000,10,Married

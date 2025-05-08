@@ -29,9 +29,6 @@
                         <a href="{{ url_for('reports') }}">Reports</a>
                     </li>
                     <li class="p-4 font-normal hover:font-bold hover:text-yellow-200 transition">
-                        <a href="#">Recruitment</a>
-                    </li>
-                    <li class="p-4 font-normal hover:font-bold hover:text-yellow-200 transition">
                         <a href="#">Attrition</a>
                     </li>
                 </ul>
@@ -41,7 +38,7 @@
                     <a href="#">Settings</a>
                 </li>
                 <li class="p-4 font-normal hover:font-bold hover:text-yellow-200 transition">
-                    <a href="#">Logout</a>
+                    <a href="{{ url_for('login')}}">Logout</a>
                 </li>
             </ul>
         </div>
@@ -68,10 +65,14 @@
                     </div>
                 
                     <!-- User Info -->
-                    <img src="{{ url_for('static', filename='photo.png') }}" alt="Photo" class="rounded-full mx-2 w-12 h-12 border border-black border">
+                    <img src=" " alt="Photo" class="rounded-full mx-2 w-12 h-12 border border-black border">
                     <div class="flex flex-col justify-center">
-                        <p class="font-bold">Swornima Shakya</p>
-                        <p class="text-sm">HR Manager</p>
+                        <p class="font-bold">
+                            {{ session.get('name') }}
+                        </p>
+                        <p class="text-sm">
+                            {{ session.get('position') }}
+                        </p>
                     </div>
                 </div>
                 
@@ -81,7 +82,9 @@
             <div id="main-content" class="flex-1 p-4 overflow-y-auto">
                 {% block content %}
                 {% endblock %}
-                <div style="height: 1000px;">Scrollllllll........</div>
+                <div style="height: 1000px;">
+                    
+                </div>
             </div>
 
             <!-- Footer -->
