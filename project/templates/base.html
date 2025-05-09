@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>{% block title %}{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body class="bg-gray-100 h-screen overflow-hidden">
@@ -38,7 +39,7 @@
                     <a href="#">Settings</a>
                 </li>
                 <li class="p-4 font-normal hover:font-bold hover:text-yellow-200 transition">
-                    <a href="{{ url_for('login')}}">Logout</a>
+                    <a href="{{ url_for('logout')}}">Logout</a>
                 </li>
             </ul>
         </div>
@@ -68,10 +69,10 @@
                     <img src=" " alt="Photo" class="rounded-full mx-2 w-12 h-12 border border-black border">
                     <div class="flex flex-col justify-center">
                         <p class="font-bold">
-                            {{ session.get('name') }}
+                            {{ name }}
                         </p>
                         <p class="text-sm">
-                            {{ session.get('position') }}
+                            {{ position }}
                         </p>
                     </div>
                 </div>
@@ -98,7 +99,10 @@
 
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="static/scripts.js"></script>
+    {% block scripts %}
+    
+    {% endblock %}
 </body>
 
 </html>
