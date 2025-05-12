@@ -14,9 +14,9 @@ app.secret_key = 's3cr3tk3y'  # Secret key for session management
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Replace with your mail server
 app.config['MAIL_PORT'] = 587  # Common port for TLS
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = '021bim061@sxc.edu.np'  # Replace with your email
-app.config['MAIL_PASSWORD'] = 'sxc0sxc@#'  # Replace with your email password
-app.config['MAIL_DEFAULT_SENDER'] = 'HR Manager <021bim061@sxc.edu.np>'  # Replace with your email
+app.config['MAIL_USERNAME'] = 'swornima9@gmail.com'  # Replace with your email
+app.config['MAIL_PASSWORD'] = 'cncq quvm rulk mbfw'  # Replace with your email password
+app.config['MAIL_DEFAULT_SENDER'] = 'HR Manager <swornima9@gmail.com>'  # Replace with your email
 
 mail = Mail(app)
 
@@ -576,7 +576,7 @@ def update_leave_status(request_id, status):
 
         # Fetch employee email and leave details
         cursor.execute("""
-            SELECT lr.start_date, lr.end_date
+            SELECT lr.start_date, lr.end_date, e.name
             FROM leave_requests lr
             JOIN employees e ON lr.emp_id = e.id
             WHERE lr.leave_id = %s
@@ -584,7 +584,7 @@ def update_leave_status(request_id, status):
         leave_details = cursor.fetchone()
 
         if status == 'Approved':
-            send_approval_email('swornima9@gmail.com', leave_details)
+            send_approval_email('021bim061@sxc.edu.np', leave_details)
     finally:
         cursor.close()
         connection.close()
@@ -598,7 +598,7 @@ def attrition_prediction():
 def send_approval_email(employee_email, leave_details):
     msg = Message('Leave Request Approved',
                   recipients=[employee_email])
-    msg.body = f"Dear Employee,\n\nYour leave request for {leave_details['start_date']} to {leave_details['end_date']} has been approved.\n\nBest regards,\nHR Team"
+    msg.body = f"Dear {leave_details['name']},\n\nYour leave request for {leave_details['start_date']} to {leave_details['end_date']} has been approved.\n\nBest regards,\nHR Team"
     mail.send(msg)
 
 if __name__ == "__main__":
