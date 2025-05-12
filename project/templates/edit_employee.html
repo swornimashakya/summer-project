@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Google | Edit Employee{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Edit Employee</h1>
+{% endblock %}
+
+{% block content %}
+    <form action="{{ url_for('edit_employee', employee_id=employee.id) }}" method="POST">
+        <div class="mb-4">
+            <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
+            <input type="text" id="name" name="name" value="{{ employee.name }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="position" class="block text-gray-700 text-sm font-bold mb-2">Position</label>
+            <input type="text" id="position" name="position" value="{{ employee.position }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="department" class="block text-gray-700 text-sm font-bold mb-2">Department</label>
+            <select id="department" name="department" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="Sales" {% if employee.department == 'Sales' %}selected{% endif %}>Engineering</option>
+                <option value="R&D" {% if employee.department == 'R&D' %}selected{% endif %}>Product</option>
+                <option value="HR" {% if employee.department == 'HR' %}selected{% endif %}>Sales</option>
+                <option value="IT" {% if employee.department == 'IT' %}selected{% endif %}>People</option>
+                <option value="Analytics" {% if employee.department == 'Analytics' %}selected{% endif %}>R&D</option>
+            </select>
+        </div>
+        
+        <div class="mb-4">
+            <label for="salary" class="block text-gray-700 text-sm font-bold mb-2">Salary</label>
+            <input type="number" id="salary" name="salary" value="{{ employee.salary }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="date_of_birth" class="block text-gray-700 text-sm font-bold mb-2">Date Joined</label>
+            <input type="date" id="date_joined" name="date_joined" value="{{ employee.date_joined }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="status" class="block text-gray-700 text-sm font-bold mb-2">Status</label>
+            <div class="mt-2">
+                <input type="radio" id="status_active" name="status" value="Active" {% if employee.status == 'Active' %}checked{% endif %} class="m-2">
+                <label for="status_active">Active</label>
+                
+                <input type="radio" id="status_left" name="status" value="Left" {% if employee.status == 'Left' %}checked{% endif %} class="m-2">
+                <label for="status_left">Left</label>
+                
+                <input type="radio" id="status_leave" name="status" value="On Leave" {% if employee.status == 'On Leave' %}checked{% endif %} class="m-2">
+                <label for="status_leave">On Leave</label>
+            </div>
+        </div>
+        <div class="flex space-x-4">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Changes</button>
+            <a href="{{ url_for('employees') }}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</a>
+        </div>
+    </form>
+{% endblock %} 

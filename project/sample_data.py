@@ -52,12 +52,13 @@ def insert_sample_employees():
         department = random.choice(departments)
         position = random.choice(positions[department])
         salary = random.randint(20000, 150000)  # Need to normalize this
-        status = random.choice(['Active', 'Left'])
+        status = random.choice(['Present', 'Absent', 'Left'])
         total_working_years = random.randint(1, 40)
         years_at_company = random.randint(1, total_working_years)
         job_satisfaction = random.randint(1, 4)
         overtime = random.choice(['Yes', 'No'])
         marital_status = random.choice(['Single', 'Married', 'Divorced'])
+        gender = random.choice(['Male', 'Female'])
         
         # Create a random join date
         join_date = datetime.now() - timedelta(days=365*years_at_company)
@@ -66,11 +67,11 @@ def insert_sample_employees():
             """INSERT INTO employees 
             (name, age, position, department, salary, status, 
              total_working_years, years_at_company, job_satisfaction, 
-             overtime, marital_status, created_at)
+             overtime, marital_status, gender, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (name, age, position, department, salary, status,
              total_working_years, years_at_company, job_satisfaction,
-             overtime, marital_status, join_date)
+             overtime, marital_status, gender, join_date)
         )
     
     conn.commit()

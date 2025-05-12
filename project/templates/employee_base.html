@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body class="bg-gray-50 h-screen overflow-hidden">
+    <div id="main" class="h-full flex">
+        <!-- Sidebar -->
+        <div
+          id="sidebar"
+          class="sidebar w-64 bg-white shadow-lg flex flex-col justify-between transition-all duration-300 ease-in-out"
+        >
+            <div>
+                <div id="logo" class="p-6">
+                    <a
+                      href="{{ url_for('employee_view') }}"
+                      class="text-2xl font-bold text-[#4285F4] hover:text-[#2B6CD4] transition-colors duration-200"
+                      >Google</a
+                    >
+                </div>
+                <ul class="py-4">
+                    <li class="px-6 py-4">
+                        <a
+                          href="{{ url_for('employee_view') }}"
+                          class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+                        >
+                            <svg
+                              class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                />
+                            </svg>
+                            <span class="relative">My Profile</span>
+                        </a>
+                    </li>
+                    <li class="px-6 py-4">
+                        <a
+                          href="{{ url_for('emp_leave') }}"
+                          class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+                        >
+                            <svg
+                              class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                            </svg>
+                            <span class="relative">Leave Request</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <ul class="py-4 border-t border-gray-100">
+                <li class="px-6 py-4">
+                    <a
+                      href="#"
+                      class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+                    >
+                        <svg
+                          class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                            />
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                        </svg>
+                        <span class="relative">Settings</span>
+                    </a>
+                </li>
+                <li class="px-6 py-4">
+                    <a
+                      href="{{ url_for('logout')}}"
+                      class="nav-link flex items-center text-gray-600 hover:text-[#EA4335] group"
+                    >
+                        <svg
+                          class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#EA4335] transition-colors duration-200"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                            />
+                        </svg>
+                        <span class="relative">Logout</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Right content area -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Fixed Navbar -->
+            <div
+              id="nav"
+              class="flex justify-between items-center py-3 px-6 bg-white shadow-sm sticky top-0 z-10"
+            >
+                <div class="flex items-center">
+                    <div id="page-title">{% block page_title %} {% endblock %}</div>
+                </div>
+                <div id="user" class="flex items-center space-x-4">
+                    <!-- Search Bar with Icon -->
+                    <div class="relative hidden md:block">
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          class="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#4285F4] focus:border-transparent transition-all duration-200"
+                        />
+                        <svg
+                          class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M21 21l-4.35-4.35M16 10a6 6 0 11-12 0 6 6 0 0112 0z"
+                            />
+                        </svg>
+                    </div>
+
+                    <!-- User Info -->
+                    <div class="flex items-center space-x-3">
+                        <img
+                          src="static\pp.avif"
+                          alt="Photo"
+                          class="w-10 h-10 rounded-full border-2 border-[#4285F4] hover:border-[#2B6CD4] transition-colors duration-200"
+                        />
+                        <div class="flex flex-col">
+                            <p class="font-semibold text-gray-800">
+                                {{ name }}
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                {{ position }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scrollable main content -->
+            <div id="main-content" class="flex-1 p-6 overflow-y-auto bg-gray-50">
+                {% block content %} {% endblock %}
+            </div>
+
+            <!-- Footer -->
+            <div
+              id="footer"
+              class="bg-white text-center py-2"
+            >
+                <p class="text-xs text-gray-500">
+                    © 2023 Google. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="static/scripts.js"></script>
+    {% block scripts %} {% endblock %}
+</body>
+
+</html>

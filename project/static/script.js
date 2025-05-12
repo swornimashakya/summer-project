@@ -1,43 +1,43 @@
+// Show/hide password functionality for login page
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.getElementById('password');
+    const showPasswordCheckbox = document.getElementById('showPassword');
 
+    if (passwordInput && showPasswordCheckbox) {
+        showPasswordCheckbox.addEventListener('change', function() {
+            console.log('Checkbox changed:', this.checked);
+            passwordInput.type = this.checked ? 'text' : 'password';
+        });
+    }
+});
 
+// Modal functionality
+const modal = document.getElementById('editProfileModal');
+const editBtn = document.getElementById('editProfileBtn');
+const closeBtn = document.getElementById('closeModal');
+const cancelBtn = document.getElementById('cancelEdit');
 
+if (editBtn) {
+    editBtn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+    });
+}
 
+if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+}
 
+if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // Fetch data from Flask backend API
-// fetch('/get_data')
-// .then(response => response.json())
-// .then(data => {
-//     const ctx = document.getElementById('employeeChart').getContext('2d');
-//     const employeeChart = new Chart(ctx, {
-//         type: 'bar',  // Type of chart: bar chart
-//         data: {
-//             labels: data.labels,  // Departments
-//             datasets: [{
-//                 label: 'Number of Employees',
-//                 data: data.values,  // Employee count per department
-//                 backgroundColor: ['#FF5733', '#33FF57', '#3357FF'],
-//                 borderColor: ['#FF5733', '#33FF57', '#3357FF'],
-//                 borderWidth: 1
-//             }]
-//         },
-//         options: {
-//             scales: {
-//                 y: { beginAtZero: true }
-//             }
-//         }
-//     });
-// });
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    if (e.target === modal) {
+        modal.classList.add('hidden');
+    }
+});

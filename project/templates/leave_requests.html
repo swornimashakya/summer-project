@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Company | Leave Requests{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Leave Requests</h1>
+{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto px-4 py-8">
+    <!-- Filters -->
+    <!-- <div class="mb-6 flex flex-wrap gap-4">
+        <div class="flex items-center space-x-2">
+            <label for="status-filter" class="text-sm font-medium text-gray-700">Status:</label>
+            <select id="status-filter" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                <option value="all">All</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+    </div> -->
+
+    <!-- Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Days</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for request in leave_requests %}
+                    <tr class="hover:bg-gray-50" data-request-id="{{ request.leave_id }}">
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ request.name }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-500">{{ request.dept }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if request.type == 'Annual' %}bg-green-100 text-green-800
+                                {% elif request.type == 'Sick' %}bg-red-100 text-red-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ request.type }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ request.duration }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ request.start_date.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ request.end_date.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ request.reason }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ request.total_days }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if request.status == 'Approved' %}bg-green-100 text-green-800
+                                {% elif request.status == 'Rejected' %}bg-red-100 text-red-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ request.status }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if request.status == 'Pending' %}
+                            <div class="flex space-x-2">
+                                <a href="{{ url_for('update_leave_status', request_id=request.leave_id, status='Approved') }}" 
+                                    class="text-green-600 hover:text-green-900">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </a>
+                                <a href="{{ url_for('update_leave_status', request_id=request.leave_id, status='Rejected') }}" 
+                                    class="text-red-600 hover:text-red-900">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                            {% else %}
+                            <div class="flex space-x-2">
+                                <a href="{{ url_for('update_leave_status', request_id=request.leave_id, status='Pending') }}" 
+                                    class="text-blue-600 hover:text-blue-900" title="Change to Pending">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+{% endblock %}

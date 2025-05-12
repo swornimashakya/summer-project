@@ -1,0 +1,141 @@
+{% extends "employee_base.html" %}
+
+{% block title %}Google | {{ name }}{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">My Profile</h1>
+{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto space-y-6">
+    <!-- Welcome Card -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="flex items-center space-x-6">
+            <!-- Profile Image -->
+            <div class="w-1/4">
+                <img src="{{ profile_pic or url_for('static', filename='pp.avif') }}" 
+                     alt="Profile Picture" 
+                     class="w-full h-48 object-cover rounded-lg shadow-md">
+            </div>
+            <!-- Welcome Message -->
+            <div class="w-3/4">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Hi, {{ name.split()[0] }}!</h2>
+                <p class="text-xl text-gray-600">{{ position }}</p>
+                <p class="text-gray-500 mt-2">Welcome back to your dashboard. Here's an overview of your profile.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Card -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-800">Profile Details</h3>
+            <button id="editProfileBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                <span>Edit Profile</span>
+            </button>
+        </div>
+
+        <!-- Profile Details -->
+        <div class="grid grid-cols-2 gap-6">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-700 mb-4">Personal Information</h4>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-gray-500">Email</p>
+                        <p class="font-medium text-gray-800">{{ email }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Phone</p>
+                        <p class="font-medium text-gray-800">{{ phone }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Date of Birth</p>
+                        <p class="font-medium text-gray-800">{{ dob }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Address</p>
+                        <p class="font-medium text-gray-800">{{ address }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-lg font-semibold text-gray-700 mb-4">Work Information</h4>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-gray-500">Department</p>
+                        <p class="font-medium text-gray-800">{{ department }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Employee ID</p>
+                        <p class="font-medium text-gray-800">{{ employee_id }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Join Date</p>
+                        <p class="font-medium text-gray-800">{{ join_date }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Status</p>
+                        <p class="font-medium">
+                            <span class="px-3 py-1 rounded-full text-sm {{ 'bg-green-100 text-green-800' if status == 'Active' else 'bg-red-100 text-red-800' }}">
+                                {{ status }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div id="editProfileModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-3/4 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">Edit Profile</h3>
+            <button id="closeModal" class="text-gray-600 hover:text-gray-800">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <form action="#" method="POST" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-gray-700">Name</label>
+                    <input type="text" name="name" value="{{ name }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-gray-700">Email</label>
+                    <input type="email" name="email" value="{{ email }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-gray-700">Phone</label>
+                    <input type="tel" name="phone" value="{{ phone }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-gray-700">Address</label>
+                    <input type="text" name="address" value="{{ address }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-4">
+                <button type="button" id="cancelEdit" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}

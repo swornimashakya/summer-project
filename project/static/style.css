@@ -1,0 +1,20 @@
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+.body-bg {
+    background-color: #e7e7e7;
+    background-image: linear-gradient(315deg, #c6b7d0 0%, #4d60ad 74%);
+}
+
+
+/* @media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        transition: left 0.3s ease;
+    }
+    .sidebar.active {
+        left: 0;
+    }
+} */

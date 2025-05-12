@@ -1,0 +1,52 @@
+{% extends "employee_base.html" %}
+
+{% block title %}Attendance{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Attendance Record</h1>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">Today's Status</h2>
+            <div class="flex items-center space-x-4">
+                <div class="px-4 py-2 bg-green-100 text-green-800 rounded-lg">
+                    <span class="font-medium">Status:</span> Present
+                </div>
+                <div class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg">
+                    <span class="font-medium">Check-in:</span> 9:00 AM
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xl font-semibold mb-4">Monthly Attendance</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-in</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-out</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">2024-03-20</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full bg-green-100 text-green-800">Present</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">9:00 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">5:00 PM</td>
+                        </tr>
+                        <!-- Add more rows as needed -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

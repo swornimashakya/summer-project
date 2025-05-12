@@ -1,0 +1,122 @@
+{% extends "employee_base.html" %}
+
+{% block title %}Google | Leave Request{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Leave Request</h1>
+{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <!-- Leave Balance
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">Leave Balance</h2>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium text-blue-800">Annual Leave</h3>
+                    <p class="text-2xl font-bold text-blue-600">15 days</p>
+                    <p class="text-sm text-blue-600">Remaining</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium text-green-800">Sick Leave</h3>
+                    <p class="text-2xl font-bold text-green-600">10 days</p>
+                    <p class="text-sm text-green-600">Remaining</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium text-purple-800">Personal Leave</h3>
+                    <p class="text-2xl font-bold text-purple-600">5 days</p>
+                    <p class="text-sm text-purple-600">Remaining</p>
+                </div>
+            </div>
+        </div> -->
+
+        <!-- Apply for Leave -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">Apply for Leave</h2>
+            <form action="/emp_leave" method="post" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Leave Type</label>
+                        <select class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="leave_type">
+                            <option>Annual Leave</option>
+                            <option>Sick Leave</option>
+                            <option>Personal Leave</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Duration</label>
+                        <select class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="duration">
+                            <option>Full Day</option>
+                            <option>Half Day</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                        <input type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="start_date">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">End Date</label>
+                        <input type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="end_date">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Reason</label>
+                    <textarea class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" rows="3" name="reason"></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Submit Request
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Leave History -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4">Leave Request Status</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for leave_request in leave_requests %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['leave_id'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['type'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['start_date'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['end_date'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['total_days'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['reason'] }}</td>
+                            {% if leave_request['status'] == 'Pending' %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                            </td>
+                            {% elif leave_request['status'] == 'Approved' %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full bg-green-100 text-green-800">Approved</span>
+                            </td>
+                            {% elif leave_request['status'] == 'Rejected' %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">Rejected</span>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        <!-- Add more rows as needed -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

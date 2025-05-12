@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}SXC | Employees{% endblock %}
+{% block title %}Google | Employees{% endblock %}
 
 {% block page_title %}
 <h1 class="text-xl font-bold">Employees</h1>
@@ -8,13 +8,8 @@
 
 {% block content %}
 <div class="flex justify-between items-center mb-4">
-    <!-- Add Employee Button -->
-    <a href="employees/add_employee" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-        Add Employee
-    </a>
-
     <!-- Filter Dropdown -->
-    <div>
+    <!-- <div>
         <label for="department-filter" class="mr-2 font-semibold">Filter by Department:</label>
         <select id="department-filter" class="px-2 py-1 rounded border">
             <option value="All">Sales</option>
@@ -22,7 +17,12 @@
             <option value="Product">HR</option>
             <option value="Analytics">IT</option>
         </select>
-    </div>
+    </div> -->
+
+    <!-- Add Employee Button -->
+    <a href="employees/add_employee" class="bg-[#4285F4] text-white px-4 py-2 rounded hover:bg-blue-700">
+        Add Employee
+    </a>
 </div>
 
 <!-- Employee Table -->
@@ -47,11 +47,11 @@
             <td class="py-2 px-4">{{ employee.position }}</td>
             <td class="py-2 px-4">{{ employee.department }}</td>
             <td class="py-2 px-4">{{ employee.salary }}</td>
-            <td class="py-2 px-4">{{ employee.years_at_company }}</td>
+            <td class="py-2 px-4">{{ employee.years_at_company }} years</td>
             <td class="py-2 px-4">{{ employee.status }}</td>
             <td class="py-2 px-4 text-right">
-                <a href="employees/edit/{{ employee.id }}" class="text-blue-600 hover:underline">Edit</a>
-                <a href="employees/delete/{{ employee.id }}" class="text-red-600 hover:underline ml-2">Delete</a>
+                <a href="/employees/edit/{{ employee.id }}" class="text-blue-600 hover:underline">Edit</a>
+                <a href="/employees/delete/{{ employee.id }}" onclick="return confirm('Are you sure you want to delete this employee?')" class="text-red-600 hover:underline ml-2">Delete</a>
             </td>
         </tr>
         {% endfor %}

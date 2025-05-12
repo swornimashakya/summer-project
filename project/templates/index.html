@@ -7,99 +7,156 @@
 {% endblock %}
 
 {% block content %}
-<div id="content" class="flex flex-col">
-    <!-- First Row -->
-    <div id="first-row" class="flex flex-row justify-between p-2 -m-1">
-        <div class="flex flex-col w-2/4 border border-black rounded-2xl p-12 mx-2">
-            <h2 class="text-lg font-semibold">Total Employees</h2>
-            <p class="text-4xl font-bold">
-                {{ total_employees }}
-            </p>
+<div class="container mx-auto px-4 py-8">
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
+            <h3 class="text-gray-500 text-sm font-medium">Total Employees</h3>
+            <p class="text-3xl font-bold text-[#4285F4]">{{ total_employees }}</p>
         </div>
-        <div class="flex flex-col w-1/4 border border-black rounded-2xl p-12 mx-2">
-            <h2 class="text-lg font-semibold">Attrition Rate</h2>
-            <p class="text-4xl font-bold">5.7%</p>
+        <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
+            <h3 class="text-gray-500 text-sm font-medium">Attrition Rate</h3>
+            <p class="text-3xl font-bold text-[#EA4335]">x%</p>
         </div>
-        <div class="flex flex-col w-1/4 border border-black rounded-2xl p-12 mx-2">
-            <h2 class="text-lg font-semibold">On Leave</h2>
-            <p class="text-4xl font-bold">11</p>
+        <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
+            <h3 class="text-gray-500 text-sm font-medium">Leave Requests</h3>
+            <p class="text-3xl font-bold text-[#FBBC05]">{{ leave_requests|selectattr('status', 'equalto', 'Pending')|list|length }}</p>
         </div>
-        <div class="flex flex-col w-1/4 border border-black rounded-2xl p-12 mx-2">
-            <h2 class="text-lg font-semibold">At-Risk Staff</h2>
-            <p class="text-4xl font-bold">50</p>
+        <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
+            <h3 class="text-gray-500 text-sm font-medium">At-Risk Staff</h3>
+            <p class="text-3xl font-bold text-[#34A853]">x</p>
         </div>
     </div>
 
-    <!-- Second Row -->
-    <div id="second-row" class="flex flex-row justify-between p-2 -m-1">
-        <!-- Reports -->
-        <div id="report" class="w-full border border-black rounded-2xl p-12 m-2">
-            <h2 class="text-lg font-semibold">Reports</h2>
-            <div id="charts" class="flex flex-row justify-between">
-                <div class="chart-container w-1/3 p-4">
-                    <h2>Department Distribution</h2>
-                    <canvas id="deptChart" class="h-full"></canvas>
-                </div>
-
-                <div class="chart-container w-1/3 p-4">
-                    <h2>Age Ranges</h2>
-                    <canvas id="ageChart" class="h-full"></canvas>
-                </div>
-
-                <div class="chart-container w-1/3 p-4">
-                    <h2>Salary Bands</h2>
-                    <canvas id="salaryChart" class="h-full"></canvas>
-                </div>
+    <!-- Charts and Leave Requests Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Department Distribution -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Department Distribution</h3>
+            <div class="relative h-80">
+                <canvas id="deptChart"></canvas>
             </div>
         </div>
 
-        <!-- Leave Requests
-        <div id="leave-req" class="w-1/2 p-12 border border-black rounded-2xl m-2">
-            <h2 class="text-lg font-semibold">Leave Requests</h2>
-            <table class="min-w-full divide-y divide-gray-200 mt-4">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for request in leave_requests %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ request.eid }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ request.name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ request.department }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ request.leave_type }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ request.period }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div> -->
+        <!-- Age Distribution -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Age Distribution</h3>
+            <div class="relative h-80">
+                <canvas id="ageChart"></canvas>
+            </div>
+        </div>
 
+        <!-- Leave Requests Table -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-800">Leave Requests</h3>
+                <span class="bg-[#4285F4] text-white text-xs font-medium px-3 py-1 rounded-full">
+                    {{ leave_requests|selectattr('status', 'equalto', 'Pending')|list|length }} Pending
+                </span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for request in leave_requests %}
+                        {% if request.status == 'Pending' %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                            <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ (request.name).split()[0] }}</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.start_date }}</td>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if request.type == 'Annual' %}bg-[#34A853] text-white
+                                    {% elif request.type == 'Sick' %}bg-[#EA4335] text-white
+                                    {% else %}bg-[#FBBC05] text-white
+                                    {% endif %}">
+                                    {{ request.type }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.total_days }} days</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <!-- Third Row -->
-    <div id="third-row" class="flex flex-row justify-between p-2 -m-1">
-        <div id="employees" class="flex flex-col w-1/3 border border-black rounded-2xl p-12 m-2">
-            <h2 class="text-lg font-semibold">Employee List</h2>
-
+    <!-- Additional Info Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Employee List -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Employee List</h3>
+            <div class="space-y-4">
+                {% for employee in employees[:5] %}
+                <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-[#4285F4] flex items-center justify-center text-white font-semibold">
+                            {{ employee.name[0] }}
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
+                        <p class="text-xs text-gray-500">{{ employee.position }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
-        <div id="anniversary" class="flex flex-col w-1/3 border border-black rounded-2xl p-12 m-2">
-            <h2 class="text-lg font-semibold">Anniversaries</h2>
 
+        <!-- Anniversaries -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Anniversaries</h3>
+            <div class="space-y-4">
+                {% for employee in employees[:5] %}
+                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full bg-[#FBBC05] flex items-center justify-center text-white text-sm font-semibold">
+                            {{ employee.name[0] }}
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
+                            <p class="text-xs text-gray-500">{{ employee.years_at_company }} years</p>
+                        </div>
+                    </div>
+                    <span class="text-xs text-[#4285F4] font-medium">Today</span>
+                </div>
+                {% endfor %}
+            </div>
         </div>
-        <div id="birthday" class="flex flex-col w-1/3 border border-black rounded-2xl p-12 m-2">
-            <h2 class="text-lg font-semibold">Birthdays</h2>
 
+        <!-- Birthdays -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Birthdays</h3>
+            <div class="space-y-4">
+                {% for employee in employees[:5] %}
+                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full bg-[#EA4335] flex items-center justify-center text-white text-sm font-semibold">
+                            {{ employee.name[0] }}
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
+                            <p class="text-xs text-gray-500">{{ employee.age }} years</p>
+                        </div>
+                    </div>
+                    <span class="text-xs text-[#4285F4] font-medium">Today</span>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
-    {% endblock %}
+</div>
+{% endblock %}
 
-    {% block scripts %}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ url_for('static', filename='chart.js') }}"></script>
-    {% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='chart.js') }}"></script>
+{% endblock %}
