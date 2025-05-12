@@ -4,10 +4,21 @@ import mysql.connector
 from datetime import datetime
 import bcrypt  # For password hashing
 from functools import wraps
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
 
 app.secret_key = 's3cr3tk3y'  # Secret key for session management
+
+# Configure email settings
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Replace with your mail server
+app.config['MAIL_PORT'] = 587  # Common port for TLS
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = '021bim061@sxc.edu.np'  # Replace with your email
+app.config['MAIL_PASSWORD'] = 'sxc0sxc@#'  # Replace with your email password
+app.config['MAIL_DEFAULT_SENDER'] = 'HR Manager <021bim061@sxc.edu.np>'  # Replace with your email
+
+mail = Mail(app)
 
 def login_required(f):
     @wraps(f)
@@ -79,24 +90,33 @@ def login():
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
-        if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-            session['user_id'] = user['id']
-            session['role'] = user['role']
-            session['employee_id'] = user['employee_id']  # Store employee_id in session
-            session['email'] = user['email']
-            
-            # Fetch employee details
-            cursor.execute("SELECT name, position FROM employees WHERE id = %s", (user['employee_id'],))
-            employee = cursor.fetchone()
-            session['name'] = employee['name']
-            session['position'] = employee['position']
-            
-            if user['role'] == 'hr':
-                return redirect(url_for('index'))  # HR sees index
-            elif user['role'] == 'employee':
-                return redirect(url_for('employee_view'))  # Employee view
-            else:
-                return render_template('login.html', error="Employee record not found.")
+        if not user:
+            flash('Invalid email or password', 'error')
+            return redirect(url_for('login'))
+
+        if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+            flash('Invalid email or password', 'error')
+            return redirect(url_for('login'))
+
+        session['user_id'] = user['id']
+        session['role'] = user['role']
+        session['employee_id'] = user['employee_id']
+        session['email'] = user['email']
+        
+        # Fetch employee details
+        cursor.execute("SELECT name, position FROM employees WHERE id = %s", (user['employee_id'],))
+        employee = cursor.fetchone()
+        session['name'] = employee['name']
+        session['position'] = employee['position']
+        
+        if user['role'] == 'hr':
+            return redirect(url_for('index'))
+        elif user['role'] == 'employee':
+            return redirect(url_for('employee_view'))
+        else:
+            flash('Invalid user role', 'error')
+            return redirect(url_for('login'))
+
         cursor.close()
         connection.close()
     else:
@@ -172,6 +192,7 @@ def logout():
     session.pop('name', None)
     session.pop('position', None)
     session.pop('employee_id', None)
+    flash('Logged out successfully', 'success')
     return redirect(url_for('login'))
 
 @app.route('/employees')
@@ -222,9 +243,63 @@ def add_employee():
         cursor.close()
         connection.close()
 
-        # Redirect to the list of employees after adding
+        flash('Employee added successfully', 'success')
         return redirect(url_for('employees'))
     return render_template('add_employee.html')
+
+@app.route('/employees/edit_employee/<int:employee_id>', methods=['GET', 'POST'])
+def edit_employee(employee_id):
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        department = request.form['department']
+        salary = request.form['salary']
+        status = request.form['status']
+        years_at_company = request.form['years_at_company']
+        # age = request.form['age']
+        # marital_status = request.form['marital_status']
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            UPDATE employees
+            SET name = %s, position = %s, department = %s, salary = %s, status = %s, years_at_company = %s 
+            WHERE id = %s 
+        """, (name, position, department, salary, status, years_at_company, employee_id))
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        flash('Employee updated successfully', 'success')
+        return redirect(url_for('employees'))
+    
+    # Fetch employee data for GET request
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees WHERE id = %s", (employee_id,))
+    employee = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
+    if not employee:
+        flash('Employee not found', 'error')
+        return redirect(url_for('employees'))
+        
+    return render_template('edit_employee.html', employee=employee)
+        
+@app.route('/employees/delete_employee/<int:employee_id>') 
+def delete_employee(employee_id):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("DELETE FROM employees WHERE id = %s", (employee_id,))
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    flash('Employee deleted successfully', 'success')
+    return redirect(url_for('employees'))
 
 @app.route('/department-data')
 def department_data():
@@ -489,7 +564,7 @@ def update_leave_status(request_id, status):
         return redirect(url_for('leave_requests'))
     
     connection = get_db_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
     
     try:
         cursor.execute("""
@@ -498,6 +573,18 @@ def update_leave_status(request_id, status):
             WHERE leave_id = %s
         """, (status, request_id))
         connection.commit()
+
+        # Fetch employee email and leave details
+        cursor.execute("""
+            SELECT lr.start_date, lr.end_date
+            FROM leave_requests lr
+            JOIN employees e ON lr.emp_id = e.id
+            WHERE lr.leave_id = %s
+        """, (request_id,))
+        leave_details = cursor.fetchone()
+
+        if status == 'Approved':
+            send_approval_email('swornima9@gmail.com', leave_details)
     finally:
         cursor.close()
         connection.close()
@@ -507,6 +594,12 @@ def update_leave_status(request_id, status):
 @app.route('/attrition-prediction')
 def attrition_prediction():
     return render_template("attrition_prediction.html")
+
+def send_approval_email(employee_email, leave_details):
+    msg = Message('Leave Request Approved',
+                  recipients=[employee_email])
+    msg.body = f"Dear Employee,\n\nYour leave request for {leave_details['start_date']} to {leave_details['end_date']} has been approved.\n\nBest regards,\nHR Team"
+    mail.send(msg)
 
 if __name__ == "__main__":
     app.run(debug=True)

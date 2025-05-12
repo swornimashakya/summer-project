@@ -19,11 +19,11 @@
         <div class="mb-4">
             <label for="department" class="block text-gray-700 text-sm font-bold mb-2">Department</label>
             <select id="department" name="department" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="Sales" {% if employee.department == 'Sales' %}selected{% endif %}>Engineering</option>
-                <option value="R&D" {% if employee.department == 'R&D' %}selected{% endif %}>Product</option>
-                <option value="HR" {% if employee.department == 'HR' %}selected{% endif %}>Sales</option>
-                <option value="IT" {% if employee.department == 'IT' %}selected{% endif %}>People</option>
-                <option value="Analytics" {% if employee.department == 'Analytics' %}selected{% endif %}>R&D</option>
+                <option value="Engineering" {% if employee.department == 'Engineering' %}selected{% endif %}>Engineering</option>
+                <option value="Product" {% if employee.department == 'Product' %}selected{% endif %}>Product</option>
+                <option value="Sales" {% if employee.department == 'Sales' %}selected{% endif %}>Sales</option>
+                <option value="People" {% if employee.department == 'People' %}selected{% endif %}>People</option>
+                <option value="R&D" {% if employee.department == 'R&D' %}selected{% endif %}>R&D</option>
             </select>
         </div>
         
@@ -32,8 +32,16 @@
             <input type="number" id="salary" name="salary" value="{{ employee.salary }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>
         <div class="mb-4">
-            <label for="date_of_birth" class="block text-gray-700 text-sm font-bold mb-2">Date Joined</label>
-            <input type="date" id="date_joined" name="date_joined" value="{{ employee.date_joined }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            <label for="years_at_company" class="block text-gray-700 text-sm font-bold mb-2">Years at Company</label>
+            <input type="number" id="years_at_company" name="years_at_company" value="{{ employee.years_at_company }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" step="0.1">
+        </div>
+        <div class="mb-4">
+            <label for="marital_status" class="block text-gray-700 text-sm font-bold mb-2">Marital Status</label>
+            <select id="marital_status" name="marital_status" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="Single" {% if employee.marital_status == 'Single' %}selected{% endif %}>Single</option>
+                <option value="Married" {% if employee.marital_status == 'Married' %}selected{% endif %}>Married</option>
+                <option value="Divorced" {% if employee.marital_status == 'Divorced' %}selected{% endif %}>Divorced</option>
+            </select>
         </div>
         <div class="mb-4">
             <label for="status" class="block text-gray-700 text-sm font-bold mb-2">Status</label>
