@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+{% extends "hr/base.html" %}
 
-{% block title %}SXC | Dashboard{% endblock %}
+{% block title %}Company{% endblock %}
 
 {% block page_title %}
 <h1 class="text-xl font-bold">Dashboard</h1>
@@ -16,15 +16,16 @@
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">Attrition Rate</h3>
-            <p class="text-3xl font-bold text-[#EA4335]">x%</p>
+            <p class="text-3xl font-bold text-[#EA4335]">2.5%</p>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">Leave Requests</h3>
-            <p class="text-3xl font-bold text-[#FBBC05]">{{ leave_requests|selectattr('status', 'equalto', 'Pending')|list|length }}</p>
+            <p class="text-3xl font-bold text-[#FBBC05]">{{ leave_requests|selectattr('status', 'equalto',
+                'Pending')|list|length }}</p>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">At-Risk Staff</h3>
-            <p class="text-3xl font-bold text-[#34A853]">x</p>
+            <p class="text-3xl font-bold text-[#34A853]">6</p>
         </div>
     </div>
 
@@ -34,7 +35,7 @@
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Department Distribution</h3>
             <div class="relative h-80">
-                <canvas id="deptChart"></canvas>
+                <canvas id="deptChart" width="400" height="320"></canvas>
             </div>
         </div>
 
@@ -42,7 +43,7 @@
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Age Distribution</h3>
             <div class="relative h-80">
-                <canvas id="ageChart"></canvas>
+                <canvas id="ageChart" width="400" height="320"></canvas>
             </div>
         </div>
 
@@ -55,20 +56,29 @@
                 </span>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full divide-y divide-gray-200">
+                <table class="w-full divide-y divide-gray-200 text-xs">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                Name</th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                Start</th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                Type</th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                Period</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for request in leave_requests %}
                         {% if request.status == 'Pending' %}
                         <tr class="hover:bg-gray-50 transition-colors duration-150">
-                            <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ (request.name).split()[0] }}</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{
+                                (request.name).split()[0] }}</td>
                             <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.start_date }}</td>
                             <td class="px-4 py-2 whitespace-nowrap">
                                 <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -79,7 +89,8 @@
                                     {{ request.type }}
                                 </span>
                             </td>
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.total_days }} days</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.total_days }} days
+                            </td>
                         </tr>
                         {% endif %}
                         {% endfor %}
@@ -98,7 +109,8 @@
                 {% for employee in employees[:5] %}
                 <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
                     <div class="flex-shrink-0">
-                        <div class="w-10 h-10 rounded-full bg-[#4285F4] flex items-center justify-center text-white font-semibold">
+                        <div
+                            class="w-10 h-10 rounded-full bg-[#4285F4] flex items-center justify-center text-white font-semibold">
                             {{ employee.name[0] }}
                         </div>
                     </div>
@@ -116,9 +128,11 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Anniversaries</h3>
             <div class="space-y-4">
                 {% for employee in employees[:5] %}
-                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                <div
+                    class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
                     <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full bg-[#FBBC05] flex items-center justify-center text-white text-sm font-semibold">
+                        <div
+                            class="w-8 h-8 rounded-full bg-[#FBBC05] flex items-center justify-center text-white text-sm font-semibold">
                             {{ employee.name[0] }}
                         </div>
                         <div>
@@ -137,9 +151,11 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Birthdays</h3>
             <div class="space-y-4">
                 {% for employee in employees[:5] %}
-                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                <div
+                    class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
                     <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full bg-[#EA4335] flex items-center justify-center text-white text-sm font-semibold">
+                        <div
+                            class="w-8 h-8 rounded-full bg-[#EA4335] flex items-center justify-center text-white text-sm font-semibold">
                             {{ employee.name[0] }}
                         </div>
                         <div>
@@ -156,7 +172,97 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+<!-- Load Chart.js first -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='chart.js') }}"></script>
-{% endblock %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const colors = {
+        blue: '#4285F4',
+        red: '#EA4335',
+        yellow: '#FBBC05',
+        green: '#34A853'
+    };
+
+    // Department Distribution Chart
+    const deptCanvas = document.getElementById('deptChart');
+    if (deptCanvas) {
+        const deptCtx = deptCanvas.getContext('2d');
+        new Chart(deptCtx, {
+            type: 'doughnut',
+            data: {
+                labels: JSON.parse('{{ department_labels|tojson }}'),
+                datasets: [{
+                    data: JSON.parse('{{ department_data|tojson }}'),
+                    backgroundColor: [
+                        colors.blue,
+                        colors.red,
+                        colors.yellow,
+                        colors.green
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Age Distribution Chart
+    const ageCanvas = document.getElementById('ageChart');
+    if (ageCanvas) {
+        const ageCtx = ageCanvas.getContext('2d');
+        new Chart(ageCtx, {
+            type: 'bar',
+            data: {
+                labels: JSON.parse('{{ age_labels|tojson }}'),
+                datasets: [{
+                    label: 'Age Distribution',
+                    data: JSON.parse('{{ age_data|tojson }}'),
+                    backgroundColor: [
+                        colors.blue,
+                        colors.red,
+                        colors.yellow,
+                        colors.green
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#e0e0e0'
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>

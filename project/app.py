@@ -5,18 +5,13 @@ from datetime import datetime
 import bcrypt  # For password hashing
 from functools import wraps
 from flask_mail import Mail, Message
+import config  # Import the config module
 
 app = Flask(__name__)
 
-app.secret_key = 's3cr3tk3y'  # Secret key for session management
+app.secret_key = config.SECRET_KEY # Use the secret key from config
 
-# Configure email settings
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Replace with your mail server
-app.config['MAIL_PORT'] = 587  # Common port for TLS
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'swornima9@gmail.com'  # Replace with your email
-app.config['MAIL_PASSWORD'] = 'cncq quvm rulk mbfw'  # Replace with your email password
-app.config['MAIL_DEFAULT_SENDER'] = 'HR Manager <swornima9@gmail.com>'  # Replace with your email
+app.config.update(config.MAIL_CONFIG) # Configure email settings using config
 
 mail = Mail(app)
 
@@ -39,14 +34,24 @@ def role_required(role):
     return decorator
 
 def get_db_connection():
-    connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="12345",
-        database="employee_db",
-        auth_plugin='mysql_native_password'
-    )
+    # Use the database configuration from config
+    connection = mysql.connector.connect(**config.DB_CONFIG)
     return connection
+
+def calculate_leave_days(start_date, end_date, duration):
+    """Calculate the total number of leave days."""
+    # Convert date strings to datetime objects
+    start_date_obj = datetime.strptime(str(start_date), '%Y-%m-%d')
+    end_date_obj = datetime.strptime(str(end_date), '%Y-%m-%d')
+    
+    # Calculate total days
+    total_days = (end_date_obj - start_date_obj).days + 1
+    
+    # For half day leave
+    if duration == 'Half Day':
+        total_days = total_days / 2
+    
+    return total_days
 
 def get_leave_requests():
     connection = get_db_connection()
@@ -61,21 +66,31 @@ def get_leave_requests():
     
     # Calculate total days for each leave request
     for request in leave_requests:
-        # Convert date strings to datetime objects
-        start_date_obj = datetime.strptime(str(request['start_date']), '%Y-%m-%d')
-        end_date_obj = datetime.strptime(str(request['end_date']), '%Y-%m-%d')
-        
-        # Calculate total days
-        total_days = (end_date_obj - start_date_obj).days + 1
-        
-        # For half day leave
-        if request['duration'] == 'Half Day':
-            total_days = total_days / 2
-            
-        # Add total_days to the request dictionary
-        request['total_days'] = total_days
+        request['total_days'] = calculate_leave_days(
+            request['start_date'], request['end_date'], request['duration']
+        )
 
     return leave_requests
+
+def get_all_employees():
+    """Fetch all employees from the database."""
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees")
+    employees = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return employees
+
+def get_employee_by_id(employee_id):
+    """Fetch an employee by ID from the database."""
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees WHERE id = %s", (employee_id,))
+    employee = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    return employee
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -110,7 +125,7 @@ def login():
         session['position'] = employee['position']
         
         if user['role'] == 'hr':
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
         elif user['role'] == 'employee':
             return redirect(url_for('employee_view'))
         else:
@@ -120,12 +135,12 @@ def login():
         cursor.close()
         connection.close()
     else:
-        return render_template('login.html')
+        return render_template('auth/login.html')
 
-@app.route('/index')
+@app.route('/dashboard')
 @login_required
 @role_required('hr')
-def index():
+def dashboard():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     
@@ -172,7 +187,7 @@ def index():
     age_labels = [row['age_group'] for row in age_data]
     age_data = [row['count'] for row in age_data]
                 
-    return render_template('index.html',
+    return render_template('hr/dashboard.html',
                         attrition_rate=attrition_rate,
                         total_employees=total_employees,
                         name=session.get('name'),
@@ -199,18 +214,8 @@ def logout():
 @login_required
 @role_required('hr')
 def employees():
-    # Connect to the database
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    
-    # Fetch employee data from the database
-    cursor.execute("SELECT * FROM employees")
-    employees = cursor.fetchall()
-    
-    # Close the database connection
-    cursor.close()
-    connection.close()
-    return render_template("employees.html", employees=employees)
+    employees = get_all_employees()
+    return render_template("hr/employees.html", employees=employees)
 
 @app.route('/employees/add_employee', methods=['GET', 'POST'])
 def add_employee():
@@ -245,7 +250,7 @@ def add_employee():
 
         flash('Employee added successfully', 'success')
         return redirect(url_for('employees'))
-    return render_template('add_employee.html')
+    return render_template('hr/add_employee.html')
 
 @app.route('/employees/edit_employee/<int:employee_id>', methods=['GET', 'POST'])
 def edit_employee(employee_id):
@@ -275,19 +280,12 @@ def edit_employee(employee_id):
         flash('Employee updated successfully', 'success')
         return redirect(url_for('employees'))
     
-    # Fetch employee data for GET request
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM employees WHERE id = %s", (employee_id,))
-    employee = cursor.fetchone()
-    cursor.close()
-    connection.close()
-    
+    employee = get_employee_by_id(employee_id)
     if not employee:
         flash('Employee not found', 'error')
         return redirect(url_for('employees'))
         
-    return render_template('edit_employee.html', employee=employee)
+    return render_template('hr/edit_employee.html', employee=employee)
         
 @app.route('/employees/delete_employee/<int:employee_id>') 
 def delete_employee(employee_id):
@@ -301,76 +299,77 @@ def delete_employee(employee_id):
     flash('Employee deleted successfully', 'success')
     return redirect(url_for('employees'))
 
+def get_chart_data(query_type):
+    """Fetch chart data based on the query type."""
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    if query_type == 'department':
+        cursor.execute("SELECT department, COUNT(*) as count FROM employees GROUP BY department")
+        data = cursor.fetchall()
+        labels = [item['department'] for item in data]
+        counts = [item['count'] for item in data]
+    
+    elif query_type == 'age':
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN age < 25 THEN '18-24'
+                    WHEN age < 35 THEN '25-34'
+                    WHEN age < 45 THEN '35-44'
+                    WHEN age < 55 THEN '45-54'
+                    ELSE '55+'
+                END as age_group,
+                COUNT(*) as count
+            FROM employees
+            GROUP BY age_group
+            ORDER BY MIN(age)
+        """)
+        data = cursor.fetchall()
+        labels = [item['age_group'] for item in data]
+        counts = [item['count'] for item in data]
+    
+    elif query_type == 'salary':
+        cursor.execute("""
+            SELECT 
+                CONCAT(FLOOR(salary/10000)*10, 'k-', FLOOR(salary/10000)*10+10, 'k') as salary_band,
+                COUNT(*) as count
+            FROM employees
+            GROUP BY salary_band
+            ORDER BY MIN(salary)
+        """)
+        data = cursor.fetchall()
+        labels = [item['salary_band'] for item in data]
+        counts = [item['count'] for item in data]
+    
+    else:
+        labels, counts = [], []
+    
+    cursor.close()
+    connection.close()
+    return labels, counts
+
 @app.route('/department-data')
 def department_data():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    # Department distribution
-    cursor.execute("SELECT department, COUNT(*) as count FROM employees GROUP BY department")
-    dept_data = cursor.fetchall()
-    
-    conn.close()
-    return jsonify({
-        'labels': [item['department'] for item in dept_data],
-        'counts': [item['count'] for item in dept_data]
-    })
+    labels, counts = get_chart_data('department')
+    return jsonify({'labels': labels, 'counts': counts})
 
 @app.route('/age-data')
 def age_data():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    # Age ranges (20-30, 31-40, etc.)
-    cursor.execute("""
-        SELECT 
-            CASE
-                WHEN age BETWEEN 18 AND 20 THEN '18-20' 
-                WHEN age BETWEEN 20 AND 30 THEN '20-30'
-                WHEN age BETWEEN 31 AND 40 THEN '31-40'
-                WHEN age BETWEEN 41 AND 50 THEN '41-50'
-                ELSE '50+'
-            END as age_range,
-            COUNT(*) as count
-        FROM employees
-        GROUP BY age_range
-        ORDER BY age_range
-    """)
-    age_data = cursor.fetchall()
-    
-    conn.close()
-    return jsonify({
-        'labels': [item['age_range'] for item in age_data],
-        'counts': [item['count'] for item in age_data]
-    })
+    labels, counts = get_chart_data('age')
+    return jsonify({'labels': labels, 'counts': counts})
 
 @app.route('/salary-data')
 def salary_data():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    # Salary bands (in $10k increments)
-    cursor.execute("""
-    SELECT 
-        CONCAT(FLOOR(salary/10000)*10, 'k-', FLOOR(salary/10000)*10+10, 'k') as salary_band,
-        COUNT(*) as count
-    FROM employees
-    GROUP BY salary_band
-    ORDER BY MIN(salary)
-    """)
-    salary_data = cursor.fetchall()
-
-    return jsonify({
-        'labels': [row['salary_band'] for row in salary_data],
-        'counts': [row['count'] for row in salary_data]
-})
+    labels, counts = get_chart_data('salary')
+    return jsonify({'labels': labels, 'counts': counts})
 
 @app.route('/leave-requests')
 def leave_requests():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     leave_requests = get_leave_requests()
-    return render_template("leave_requests.html",
+    return render_template("hr/leave_requests.html",
                            leave_requests=leave_requests
                            )
 
@@ -446,7 +445,7 @@ def reports():
     cursor.close()
     connection.close()
     
-    return render_template('reports.html',
+    return render_template('hr/reports.html',
                          total_employees=counts['total'],
                          active_employees=counts['active'],
                          on_leave=counts['on_leave'],
@@ -462,13 +461,8 @@ def reports():
 
 @app.route('/employee_view')
 def employee_view():
-    # Fetch employee data from the database
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM employees WHERE id = %s", (session.get('employee_id'),))
-    employee = cursor.fetchone()
-    connection.close()
-    return render_template("employee_view.html",
+    employee = get_employee_by_id(session.get('employee_id'))
+    return render_template("emp/employee_view.html",
                             employee_id=session.get('employee_id'),
                             name=session.get('name'),
                             position=session.get('position'),
@@ -483,7 +477,7 @@ def employee_view():
 
 @app.route('/emp_profile')
 def emp_profile():
-    return render_template("emp_profile.html",
+    return render_template("emp/emp_profile.html",
                             name=session.get('name'),
                             position=session.get('position')
                             )
@@ -501,21 +495,13 @@ def emp_leave():
         connection = get_db_connection()
         cursor = connection.cursor()
         
-        # Convert date strings to datetime objects
-        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
-        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
-        
         # Calculate total days
-        total_days = (end_date_obj - start_date_obj).days + 1
-        
-        # For half day leave
-        if duration == 'Half Day':
-            total_days = total_days / 2
+        total_days = calculate_leave_days(start_date, end_date, duration)
         
         # Insert leave request into the database
         cursor.execute("INSERT INTO leave_requests (emp_id, type, duration, start_date, end_date, reason, status) "
                        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                       (session.get('employee_id'), leave_type, duration, start_date_obj, end_date_obj, reason, 'Pending'))
+                       (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending'))
         
         connection.commit()
         cursor.close()
@@ -534,23 +520,13 @@ def emp_leave():
     
     # Calculate total days for each leave request
     for leave_request in leave_requests:
-        start_date = leave_request['start_date']
-        end_date = leave_request['end_date']
-        duration = leave_request['duration']
-        
-        # Calculate total days
-        total_days = (end_date - start_date).days + 1
-        
-        # For half day leave
-        if duration == 'Half Day':
-            total_days = total_days / 2
-            
-        # Add total_days to the request dictionary
-        leave_request['total_days'] = total_days
+        leave_request['total_days'] = calculate_leave_days(
+            leave_request['start_date'], leave_request['end_date'], leave_request['duration']
+        )
     
     connection.close()
 
-    return render_template("emp_leave.html",
+    return render_template("emp/emp_leave.html",
                          name=session.get('name'),
                          position=session.get('position'),
                          leave_requests=leave_requests)
@@ -593,7 +569,7 @@ def update_leave_status(request_id, status):
 
 @app.route('/attrition-prediction')
 def attrition_prediction():
-    return render_template("attrition_prediction.html")
+    return render_template("hr/attrition_prediction.html")
 
 def send_approval_email(employee_email, leave_details):
     msg = Message('Leave Request Approved',

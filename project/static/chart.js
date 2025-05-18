@@ -1,4 +1,3 @@
-
 // Salary Chart
 fetch('/salary-data')
     .then(response => response.json())
@@ -60,9 +59,9 @@ const deptCtx = document.getElementById('deptChart').getContext('2d');
 new Chart(deptCtx, {
     type: 'doughnut',
     data: {
-        labels: {{ department_labels|tojson }},
+        labels: JSON.parse('{{ department_labels|tojson }}'),
         datasets: [{
-            data: {{ department_data|tojson }},
+            data: JSON.parse('{{ department_data|tojson }}'),
             backgroundColor: [
                 colors.blue,
                 colors.red,
@@ -95,10 +94,10 @@ const ageCtx = document.getElementById('ageChart').getContext('2d');
 new Chart(ageCtx, {
     type: 'bar',
     data: {
-        labels: {{ age_labels|tojson }},
+        labels: JSON.parse('{{ age_labels|tojson }}'),
         datasets: [{
             label: 'Number of Employees',
-            data: {{ age_data|tojson }},
+            data: JSON.parse('{{ age_data|tojson }}'),
             backgroundColor: colors.blue,
             borderRadius: 6
         }]
