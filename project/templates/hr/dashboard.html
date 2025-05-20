@@ -172,6 +172,7 @@
 </div>
 {% endblock %}
 
+{% block scripts %}
 <!-- Load Chart.js first -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -183,16 +184,16 @@ document.addEventListener('DOMContentLoaded', function () {
         green: '#34A853'
     };
 
-    // Department Distribution Chart
+    // Department Distribution Chart (Dummy Data)
     const deptCanvas = document.getElementById('deptChart');
     if (deptCanvas) {
         const deptCtx = deptCanvas.getContext('2d');
         new Chart(deptCtx, {
             type: 'doughnut',
             data: {
-                labels: JSON.parse('{{ department_labels|tojson }}'),
+                labels: ['HR', 'IT', 'Sales', 'Finance'],
                 datasets: [{
-                    data: JSON.parse('{{ department_data|tojson }}'),
+                    data: [10, 15, 7, 5],
                     backgroundColor: [
                         colors.blue,
                         colors.red,
@@ -220,22 +221,23 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Age Distribution Chart
+    // Age Distribution Chart (Dummy Data)
     const ageCanvas = document.getElementById('ageChart');
     if (ageCanvas) {
         const ageCtx = ageCanvas.getContext('2d');
         new Chart(ageCtx, {
             type: 'bar',
             data: {
-                labels: JSON.parse('{{ age_labels|tojson }}'),
+                labels: ['18-24', '25-34', '35-44', '45-54', '55+'],
                 datasets: [{
                     label: 'Age Distribution',
-                    data: JSON.parse('{{ age_data|tojson }}'),
+                    data: [5, 12, 9, 6, 3],
                     backgroundColor: [
                         colors.blue,
                         colors.red,
                         colors.yellow,
-                        colors.green
+                        colors.green,
+                        '#888'
                     ],
                     borderWidth: 0
                 }]
@@ -266,3 +268,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+{% endblock %}
