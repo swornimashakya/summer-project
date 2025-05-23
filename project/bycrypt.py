@@ -6,7 +6,8 @@ def get_db_connection():
         user='root',
         password='12345',
         host='localhost',
-        database='employee_db'
+        database='employee_db',
+        auth_plugin='mysql_native_password'
     )
 
 connection = get_db_connection()

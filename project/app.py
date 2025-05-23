@@ -59,7 +59,7 @@ def get_leave_requests():
     cursor.execute("""
         SELECT lr.*, e.name, e.department as dept 
         FROM leave_requests lr
-        JOIN employees e ON lr.emp_id = e.id
+        JOIN employees e ON lr.employee_id = e.employee_id
         ORDER BY lr.start_date DESC
     """)
     leave_requests = cursor.fetchall()
@@ -86,7 +86,7 @@ def get_employee_by_id(employee_id):
     """Fetch an employee by ID from the database."""
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM employees WHERE id = %s", (employee_id,))
+    cursor.execute("SELECT * FROM employees WHERE employee_id = %s", (employee_id,))
     employee = cursor.fetchone()
     cursor.close()
     connection.close()
@@ -119,7 +119,7 @@ def login():
         session['email'] = user['email']
         
         # Fetch employee details
-        cursor.execute("SELECT name, position FROM employees WHERE id = %s", (user['employee_id'],))
+        cursor.execute("SELECT name, position FROM employees WHERE employee_id = %s", (user['employee_id'],))
         employee = cursor.fetchone()
         session['name'] = employee['name']
         session['position'] = employee['position']
@@ -270,7 +270,7 @@ def edit_employee(employee_id):
         cursor.execute("""
             UPDATE employees
             SET name = %s, position = %s, department = %s, salary = %s, status = %s, years_at_company = %s 
-            WHERE id = %s 
+            WHERE employee_id = %s 
         """, (name, position, department, salary, status, years_at_company, employee_id))
 
         connection.commit()
@@ -291,7 +291,7 @@ def edit_employee(employee_id):
 def delete_employee(employee_id):
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute("DELETE FROM employees WHERE id = %s", (employee_id,))
+    cursor.execute("DELETE FROM employees WHERE employee_id = %s", (employee_id,))
     connection.commit()
     cursor.close()
     connection.close()
@@ -554,7 +554,7 @@ def update_leave_status(request_id, status):
         cursor.execute("""
             SELECT lr.start_date, lr.end_date, e.name
             FROM leave_requests lr
-            JOIN employees e ON lr.emp_id = e.id
+            JOIN employees e ON lr.employee_id = e.employee_id
             WHERE lr.leave_id = %s
         """, (request_id,))
         leave_details = cursor.fetchone()
