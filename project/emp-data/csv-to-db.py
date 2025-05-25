@@ -3,6 +3,7 @@ import mysql.connector
 from mysql.connector import Error
 import random
 from datetime import datetime, timedelta
+import bcrypt
 
 # Function to establish a connection to the MySQL database
 def get_db_connection():
@@ -55,7 +56,6 @@ def insertToDatabase(extracted_20_data, employee_names):
             for row in csv_reader:
                 # Get name from the names list, cycling through if necessary
                 name = names[(employee_id - 1) % len(names)]
-                
                 
                 # Calculate fields
                 age = int(row['Age'])
@@ -110,7 +110,7 @@ def insertToDatabase(extracted_20_data, employee_names):
                     row['OverTime'],                 # overtime
                     int(row['WorkLifeBalance']),     # work_life_balance
                     int(row['DistanceFromHome']),    # distance
-                    1 if row['Attrition'] == 'Yes' else 0  # attrition_risk
+                    0  # attrition_risk (set to 0 initially)
                 ))
                 employee_id += 1
         # Commit the transaction
@@ -122,30 +122,65 @@ def insertToDatabase(extracted_20_data, employee_names):
     cursor.close()
     connection.close()
 
-# Example usage:
-insertToDatabase('notebooks\extracted-20.csv', 'emp-data\employee_names.csv')
-
 # Insert to users table
 def insertToUsersTable():
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
 
-        # Empty the users table before inserting new data
+        # Clear users table
         cursor.execute("DELETE FROM users")
         connection.commit()
 
-        # Insert data into the users table
+        # Fetch all employee IDs and names
+        cursor.execute("SELECT employee_id, name FROM employees")
+        employees = cursor.fetchall()
+
+        # Insert a user for each employee
+        for emp_id, name in employees:
+            email = f"{name.lower().replace(' ', '')}@company.com"
+            raw_password = "default123"
+            hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            role = 'employee'
+            cursor.execute("""
+                INSERT INTO users (employee_id, email, password, role)
+                VALUES (%s, %s, %s, %s)
+            """, (emp_id, email, hashed_password, role))
+
+        # Add admin info to employees table if not exists
+        cursor.execute("SELECT COUNT(*) FROM employees WHERE employee_id = %s", (0,))
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("""
+                INSERT INTO employees (
+                    employee_id, name, dob, age, position, department, salary,
+                    total_working_years, years_at_company, date_joined,
+                    marital_status, gender, edufield, env_satisfaction,
+                    job_involvement, job_level, job_satisfaction, overtime,
+                    work_life_balance, distance, attrition_risk
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                9999, 'Swornima Shakya', datetime(1990, 1, 1).date(), 35, 'HR Manager', 'HR', 0.0,
+                15, 10, datetime(2015, 1, 1).date(), 'Single', 'Female', 'Human Resources',
+                4, 4, 5, 4, 'No', 4, 1, 0  # <-- changed job_satisfaction from 5 to 4
+            ))
+
+        # Add admin user manually (if needed)
+        hr_password = bcrypt.hashpw("hr12345".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         cursor.execute("""
-            INSERT INTO users (username, password)
-            VALUES (%s, %s)
-        """, ('admin', 'admin123'))
-        
-        # Commit the transaction
+            INSERT INTO users (employee_id, email, password, role)
+            VALUES (%s, %s, %s, %s)
+        """, (9999, 'hr@company.com', hr_password, 'hr'))
+
         connection.commit()
-        print("Data inserted into users table successfully!")
+        print("Users and admin inserted and mapped to employees successfully with bcrypt passwords!")
     except Error as e:
         print(f"Error: {e}")
-    
-    cursor.close()
-    connection.close()
+    finally:
+        cursor.close()
+        connection.close()
+
+# Example usage:
+insertToDatabase('notebooks\extracted-20.csv', 'emp-data\employee_names.csv')
+
+# Example usage for inserting users
+insertToUsersTable()

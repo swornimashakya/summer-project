@@ -6,6 +6,8 @@ import bcrypt  # For password hashing
 from functools import wraps
 from flask_mail import Mail, Message
 import config  # Import the config module
+import pickle
+import pandas as pd
 
 app = Flask(__name__)
 
@@ -14,6 +16,16 @@ app.secret_key = config.SECRET_KEY # Use the secret key from config
 app.config.update(config.MAIL_CONFIG) # Configure email settings using config
 
 mail = Mail(app)
+
+MODEL_PATH = 'D:/BIM/Summer Project/project/models/random-forest-model.pkl'
+ENCODER_PATH = 'D:/BIM/Summer Project/project/models/encoders.pkl'
+
+with open(MODEL_PATH, 'rb') as f:
+    model, model_columns = pickle.load(f)
+
+with open(ENCODER_PATH, 'rb') as f:
+    encoder_data = pickle.load(f)
+    model_columns = encoder_data['columns']
 
 def login_required(f):
     @wraps(f)
@@ -109,7 +121,15 @@ def login():
             flash('Invalid email or password', 'error')
             return redirect(url_for('login'))
 
-        if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+        # Check if password is bcrypt hash or plaintext
+        db_password = user['password']
+        if db_password.startswith('$2'):
+            # bcrypt hash
+            valid = bcrypt.checkpw(password.encode('utf-8'), db_password.encode('utf-8'))
+        else:
+            # plaintext fallback (should not happen after migration)
+            valid = password == db_password
+        if not valid:
             flash('Invalid email or password', 'error')
             return redirect(url_for('login'))
 
@@ -125,11 +145,17 @@ def login():
         session['position'] = employee['position']
         
         if user['role'] == 'hr':
+            cursor.close()
+            connection.close()
             return redirect(url_for('dashboard'))
         elif user['role'] == 'employee':
+            cursor.close()
+            connection.close()
             return redirect(url_for('employee_view'))
         else:
             flash('Invalid user role', 'error')
+            cursor.close()
+            connection.close()
             return redirect(url_for('login'))
 
         cursor.close()
@@ -576,6 +602,66 @@ def send_approval_email(employee_email, leave_details):
                   recipients=[employee_email])
     msg.body = f"Dear {leave_details['name']},\n\nYour leave request for {leave_details['start_date']} to {leave_details['end_date']} has been approved.\n\nBest regards,\nHR Team"
     mail.send(msg)
+
+def preprocess_employee_data(raw_data):
+    """
+    raw_data: dict or DataFrame with the same columns as in the database
+    Returns: DataFrame ready for prediction
+    """
+    df = pd.DataFrame([raw_data])
+
+    # Binary encoding
+    df['Gender'] = df['Gender'].map({'Male': 1, 'Female': 0})
+    df['OverTime'] = df['OverTime'].map({'Yes': 1, 'No': 0})
+    df['Attrition'] = df.get('Attrition', 0)  # If present
+
+    # One-hot encoding (must match training)
+    df = df.join(pd.get_dummies(df['Department'], prefix='Dept')).drop('Department', axis=1)
+    df = df.join(pd.get_dummies(df['EducationField'], prefix='EduField')).drop('EducationField', axis=1)
+    df = df.join(pd.get_dummies(df['JobRole'], prefix='JobRole')).drop('JobRole', axis=1)
+    df = df.join(pd.get_dummies(df['MaritalStatus'])).drop('MaritalStatus', axis=1)
+
+    # Ensure all columns exist and are in the correct order
+    for col in model_columns:
+        if col not in df.columns:
+            df[col] = 0  # Add missing columns as zeros
+
+    df = df[model_columns]  # Reorder columns
+
+    return df
+
+@app.route('/predict-attrition/<int:employee_id>')
+def predict_attrition(employee_id):
+    employee = get_employee_by_id(employee_id)
+    if not employee:
+        return "Employee not found", 404
+
+    # Preprocess
+    X = preprocess_employee_data(employee)
+    prediction = int(model.predict(X)[0])  # 0 or 1
+    # probability = float(model.predict_proba(X)[0][1])  # Probability of attrition
+
+    # Update the employee record in the database
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        UPDATE employees
+        SET attrition_risk = %s
+        WHERE employee_id = %s
+    """, (prediction, employee_id))
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    # Refresh employee data to include updated prediction
+    employee = get_employee_by_id(employee_id)
+
+    # Render the prediction info page
+    return render_template(
+        "hr/predict-attrition.html",
+        employee=employee,
+        attrition_prediction=prediction
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

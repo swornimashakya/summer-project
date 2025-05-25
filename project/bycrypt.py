@@ -34,7 +34,6 @@ def insert_employee_data(employee_csv, names_csv):
         conn.commit()
 
         # Process employee data
-        employee_id = 1  # Start employee_id from 1
         with open(employee_csv) as file:
             reader = csv.DictReader(file)
             for idx, row in enumerate(reader):
@@ -45,18 +44,17 @@ def insert_employee_data(employee_csv, names_csv):
                 age = int(row['Age'])
                 join_date = (datetime.now() - timedelta(days=int(row['YearsAtCompany'])*365)).date()
                 
-                # Insert employee (with explicit employee_id)
+                # Insert employee (without employee_id)
                 cursor.execute("""
                     INSERT INTO employees (
-                        employee_id, name, dob, age, position, department, salary,
+                        name, dob, age, position, department, salary,
                         total_working_years, years_at_company, date_joined,
                         marital_status, gender, edufield, env_satisfaction,
                         job_involvement, job_level, job_satisfaction, overtime,
                         work_life_balance, distance, attrition_risk
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    employee_id,
                     name,
                     datetime(datetime.now().year - age, random.randint(1, 12), random.randint(1, 28)).date(),
                     age,
@@ -70,6 +68,9 @@ def insert_employee_data(employee_csv, names_csv):
                     1 if row['Attrition'] == 'Yes' else 0
                 ))
                 
+                # Get auto-generated employee_id
+                employee_id = cursor.lastrowid
+                
                 # Insert user with hashed password
                 cursor.execute("""
                     INSERT INTO users (
@@ -81,7 +82,6 @@ def insert_employee_data(employee_csv, names_csv):
                     hashed_password,
                     'employee'
                 ))
-                employee_id += 1
 
         conn.commit()
         print(f"Successfully inserted {len(names)} employees with users")
@@ -96,5 +96,24 @@ def insert_employee_data(employee_csv, names_csv):
         if 'conn' in locals() and conn.is_connected():
             conn.close()
 
+def hash_all_user_passwords():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, password FROM users")
+    users = cursor.fetchall()
+    for user in users:
+        plaintext = user['password']
+        # Only hash if not already hashed (bcrypt hashes start with $2)
+        if not plaintext.startswith('$2'):
+            hashed = bcrypt.hashpw(plaintext.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute("UPDATE users SET password = %s WHERE id = %s", (hashed.decode('utf-8'), user['id']))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("All passwords have been securely hashed.")
+
 # Execute the import
 insert_employee_data('notebooks/extracted-20.csv', 'emp-data/employee_names.csv')
+
+# Uncomment to run password hashing for all users
+hash_all_user_passwords()

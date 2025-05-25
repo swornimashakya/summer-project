@@ -1,0 +1,27 @@
+{% extends "hr/base.html" %}
+{% block title %}Attrition Prediction{% endblock %}
+{% block content %}
+<div class="container">
+    <h2>Attrition Prediction for {{ employee.name }}</h2>
+    <ul>
+        <li><strong>Employee ID:</strong> {{ employee.employee_id }}</li>
+        <li><strong>Position:</strong> {{ employee.position }}</li>
+        <li><strong>Department:</strong> {{ employee.department }}</li>
+        <li><strong>Status:</strong> {{ employee.status }}</li>
+    </ul>
+    <div>
+        <p>
+            <strong>Attrition Prediction:</strong>
+            {% if attrition_prediction == 1 %}
+                <span style="color: red;">Yes (At Risk)</span>
+            {% else %}
+                <span style="color: green;">No</span>
+            {% endif %}
+        </p>
+        <p>
+            <strong>Attrition Probability:</strong>
+            {{ (attrition_probability * 100) | round(2) }}%
+        </p>
+    </div>
+</div>
+{% endblock %}
