@@ -1,7 +1,7 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash, abort
 import random # For simulating data, remove in production
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timedelta
 import bcrypt  # For password hashing
 from functools import wraps
 from flask_mail import Mail, Message
@@ -63,7 +63,21 @@ def calculate_leave_days(start_date, end_date, duration):
     if duration == 'Half Day':
         total_days = total_days / 2
     
-    return total_days
+    return int(total_days)
+
+def calculate_age(dob):
+    """Calculate age from date of birth (dob: 'YYYY-MM-DD' or date object)."""
+    if not dob:
+        return ''
+    if isinstance(dob, str):
+        try:
+            dob_date = datetime.strptime(dob, '%Y-%m-%d')
+        except Exception:
+            return ''
+    else:
+        dob_date = dob
+    today = datetime.today()
+    return today.year - dob_date.year - ((today.month, today.day) < (dob_date.month, dob_date.day))
 
 def get_leave_requests():
     connection = get_db_connection()
@@ -174,11 +188,17 @@ def dashboard():
     cursor.execute("SELECT COUNT(*) AS total FROM employees")
     total_employees = cursor.fetchone()['total']
     
-    # Simulate a random attrition rate (replace with actual model prediction logic)
-    attrition_rate = random.uniform(10, 30)  # Just a random number for now
+    # Calculate attrition rate
+    cursor.execute("SELECT COUNT(*) AS attrition_count FROM employees WHERE attrition_risk = 1")
+    attrition_count = cursor.fetchone()['attrition_count']
+    attrition_rate = (attrition_count / total_employees * 100) if total_employees > 0 else 0
 
     # Fetch leave requests data from the database
     leave_requests = get_leave_requests()
+
+    # Calculate at risk employees
+    cursor.execute("SELECT COUNT(*) AS at_risk_count FROM employees WHERE attrition_risk = 1")
+    at_risk_count = cursor.fetchone()['at_risk_count']
 
     # Fetch employee data from the database
     cursor.execute("SELECT * FROM employees")
@@ -223,7 +243,8 @@ def dashboard():
                         department_labels=department_labels,
                         department_data=department_data,
                         age_labels=age_labels,
-                        age_data=age_data
+                        age_data=age_data,
+                        at_risk_count=at_risk_count
                         )
 
 @app.route('/logout')
@@ -250,7 +271,6 @@ def add_employee():
         position = request.form['position']
         department = request.form['department']
         salary = request.form['salary']
-        status = request.form['status']
         date_joined = request.form['date_joined']
 
         # Insert the employee data into the database
@@ -265,9 +285,9 @@ def add_employee():
         years_at_company = current_date.year - date_joined_obj.year
 
         cursor.execute(
-            "INSERT INTO employees (name, position, department, salary, status, years_at_company) "
+            "INSERT INTO employees (name, position, department, salary, years_at_company) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
-            (name, position, department, salary, status, years_at_company)
+            (name, position, department, salary, years_at_company)
         )
         
         connection.commit()
@@ -276,7 +296,7 @@ def add_employee():
 
         flash('Employee added successfully', 'success')
         return redirect(url_for('employees'))
-    return render_template('hr/add_employee.html')
+    return render_template('hr/add_employee.html', employees=[])
 
 @app.route('/employees/edit_employee/<int:employee_id>', methods=['GET', 'POST'])
 def edit_employee(employee_id):
@@ -285,7 +305,6 @@ def edit_employee(employee_id):
         position = request.form['position']
         department = request.form['department']
         salary = request.form['salary']
-        status = request.form['status']
         years_at_company = request.form['years_at_company']
         # age = request.form['age']
         # marital_status = request.form['marital_status']
@@ -295,9 +314,10 @@ def edit_employee(employee_id):
 
         cursor.execute("""
             UPDATE employees
-            SET name = %s, position = %s, department = %s, salary = %s, status = %s, years_at_company = %s 
+            SET name = %s, position = %s, department = %s, salary = %s
+            , years_at_company = %s 
             WHERE employee_id = %s 
-        """, (name, position, department, salary, status, years_at_company, employee_id))
+        """, (name, position, department, salary, years_at_company, employee_id))
 
         connection.commit()
         cursor.close()
@@ -392,11 +412,10 @@ def salary_data():
 
 @app.route('/leave-requests')
 def leave_requests():
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
     leave_requests = get_leave_requests()
     return render_template("hr/leave_requests.html",
-                           leave_requests=leave_requests
+                           leave_requests=leave_requests,
+                           employees=[]
                            )
 
 @app.route('/reports')
@@ -405,17 +424,6 @@ def leave_requests():
 def reports():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    
-    # Get employee counts by status
-    cursor.execute("""
-        SELECT 
-            COUNT(*) as total,
-            SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as active,
-            SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as on_leave,
-            SUM(CASE WHEN status = 'Left' THEN 1 ELSE 0 END) as `left`
-        FROM employees
-    """)
-    counts = cursor.fetchone()
     
     # Get department distribution
     cursor.execute("""
@@ -488,18 +496,21 @@ def reports():
 @app.route('/employee_view')
 def employee_view():
     employee = get_employee_by_id(session.get('employee_id'))
+    age = calculate_age(employee.get('dob'))
     return render_template("emp/employee_view.html",
-                            employee_id=session.get('employee_id'),
-                            name=session.get('name'),
-                            position=session.get('position'),
-                            department=employee['department'],
-                            salary=employee['salary'],
-                            status=employee['status'],
-                            years_at_company=employee['years_at_company'],
-                            age=employee['age'],
-                            marital_status=employee['marital_status'],
-                            email=session.get('email')
-                            )
+        employee_id=employee['employee_id'],
+        name=employee['name'],
+        dob=employee.get('dob', ''),
+        age=age,
+        position=employee.get('position', ''),
+        department=employee.get('department', ''),
+        edufield=employee.get('edufield', ''),
+        salary=employee.get('salary', ''),
+        distance=employee.get('distance', ''),
+        years_at_company=employee.get('years_at_company', ''),
+        marital_status=employee.get('marital_status', ''),
+        gender=employee.get('gender', '')
+    )
 
 @app.route('/emp_profile')
 def emp_profile():
@@ -507,6 +518,79 @@ def emp_profile():
                             name=session.get('name'),
                             position=session.get('position')
                             )
+
+@app.route('/emp_edit_details', methods=['GET', 'POST'], endpoint='emp_edit_details')
+@login_required
+def emp_edit_details():
+    employee_id = session.get('employee_id')
+    if not employee_id:
+        abort(403)
+    if request.method == 'POST':
+        dob = request.form.get('dob')
+        education_field = request.form.get('education_field')
+        total_working_years = request.form.get('total_working_years')
+        distance_from_home = request.form.get('distance_from_home')
+        marital_status = request.form.get('marital_status')
+        gender = request.form.get('gender')
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("""
+            UPDATE employees
+            SET dob = %s,
+                edufield = %s,
+                total_working_years = %s,
+                distance = %s,
+                marital_status = %s,
+                gender = %s
+            WHERE employee_id = %s
+        """, (dob, education_field, total_working_years, distance_from_home, marital_status, gender, employee_id))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        # Predict attrition for all employees after update
+        predict_attrition_for_all()
+        flash('Profile updated successfully.', 'success')
+        return redirect(url_for('employee_view'))
+
+    employee = get_employee_by_id(employee_id)
+    return render_template('emp/emp_edit_details.html', employee=employee)
+
+@app.route('/feedback_portal', methods=['GET', 'POST'])
+@login_required
+def feedback_portal():
+    if request.method == 'POST':
+        employee_id = session.get('employee_id')
+        job_satisfaction = request.form.get('job_satisfaction')
+        overtime = request.form.get('overtime')
+        env_satisfaction = request.form.get('env_satisfaction')
+        job_involvement = request.form.get('job_involvement')
+        job_level = request.form.get('job_level')
+        work_life_balance = request.form.get('work_life_balance')
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("""
+            UPDATE employees
+            SET job_satisfaction = %s,
+                overtime = %s,
+                env_satisfaction = %s,
+                job_involvement = %s,
+                job_level = %s,
+                work_life_balance = %s
+            WHERE employee_id = %s
+        """, (
+            job_satisfaction, overtime, env_satisfaction,
+            job_involvement, job_level, work_life_balance, employee_id
+        ))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        # Predict attrition for all employees after feedback update
+        predict_attrition_for_all()
+        flash('Feedback submitted successfully.', 'success')
+        return redirect(url_for('employee_view'))
+    return render_template('emp/feedback_portal.html')
 
 @app.route('/emp_leave', methods=['GET', 'POST'])
 def emp_leave():
@@ -516,46 +600,52 @@ def emp_leave():
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         reason = request.form['reason']
-        
-        # Insert leave request into the database
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Calculate total days
-        total_days = calculate_leave_days(start_date, end_date, duration)
-        
-        # Insert leave request into the database
-        cursor.execute("INSERT INTO leave_requests (emp_id, type, duration, start_date, end_date, reason, status) "
-                       "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                       (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending'))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()  
-        
-        return redirect(url_for('emp_leave'))
+
+        # Validate dates
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+            if (start_date_obj and end_date_obj) > (datetime.now() - timedelta(days=1)):
+
+                # Insert leave request into the database
+                connection = get_db_connection()
+                cursor = connection.cursor()
+                cursor.execute(
+                    "INSERT INTO leave_requests (employee_id, type, duration, start_date, end_date, reason, status) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending')
+                )
+                connection.commit()
+                cursor.close()
+                connection.close()
+                flash('Leave request submitted.', 'success')
+                return redirect(url_for('emp_leave'))
+            else:
+                flash('Invalid leave request. Please check the dates and try again.', 'error')
+                return redirect(url_for('emp_leave'))
+        except Exception as e:
+            flash('Invalid leave request. Please check the dates and try again.', 'error')
+            return redirect(url_for('emp_leave'))
 
     # GET request - fetch existing leave requests
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    
-    # Fetch leave requests for the current employee
-    cursor.execute("SELECT * FROM leave_requests WHERE emp_id = %s ORDER BY `start_date` DESC", 
+    cursor.execute("SELECT * FROM leave_requests WHERE employee_id = %s ORDER BY `start_date` DESC", 
                   (session.get('employee_id'),))
     leave_requests = cursor.fetchall()
-    
-    # Calculate total days for each leave request
+    # Calculate total days
     for leave_request in leave_requests:
         leave_request['total_days'] = calculate_leave_days(
             leave_request['start_date'], leave_request['end_date'], leave_request['duration']
         )
-    
     connection.close()
 
-    return render_template("emp/emp_leave.html",
-                         name=session.get('name'),
-                         position=session.get('position'),
-                         leave_requests=leave_requests)
+    return render_template(
+        "emp/emp_leave.html",
+        name=session.get('name'),
+        position=session.get('position'),
+        leave_requests=leave_requests
+    )
 
 @app.route('/update-leave-status/<int:request_id>/<status>')
 def update_leave_status(request_id, status):
@@ -593,10 +683,6 @@ def update_leave_status(request_id, status):
     
     return redirect(url_for('leave_requests'))
 
-@app.route('/attrition-prediction')
-def attrition_prediction():
-    return render_template("hr/attrition_prediction.html")
-
 def send_approval_email(employee_email, leave_details):
     msg = Message('Leave Request Approved',
                   recipients=[employee_email])
@@ -608,18 +694,25 @@ def preprocess_employee_data(raw_data):
     raw_data: dict or DataFrame with the same columns as in the database
     Returns: DataFrame ready for prediction
     """
-    df = pd.DataFrame([raw_data])
+    # Standardize keys to match database (lowercase)
+    data = {k.lower(): v for k, v in raw_data.items()}
+    df = pd.DataFrame([data])
 
-    # Binary encoding
-    df['Gender'] = df['Gender'].map({'Male': 1, 'Female': 0})
-    df['OverTime'] = df['OverTime'].map({'Yes': 1, 'No': 0})
-    df['Attrition'] = df.get('Attrition', 0)  # If present
+    # Binary encoding with safe get
+    df['gender'] = df.get('gender', pd.Series([None]))
+    df['gender'] = df['gender'].map({'Male': 1, 'Female': 0})
+
+    df['overtime'] = df.get('overtime', pd.Series([None]))
+    df['overtime'] = df['overtime'].map({'Yes': 1, 'No': 0})
+
+    df['attrition'] = df.get('attrition', 0)  # If present
 
     # One-hot encoding (must match training)
-    df = df.join(pd.get_dummies(df['Department'], prefix='Dept')).drop('Department', axis=1)
-    df = df.join(pd.get_dummies(df['EducationField'], prefix='EduField')).drop('EducationField', axis=1)
-    df = df.join(pd.get_dummies(df['JobRole'], prefix='JobRole')).drop('JobRole', axis=1)
-    df = df.join(pd.get_dummies(df['MaritalStatus'])).drop('MaritalStatus', axis=1)
+    for col, prefix in [('department', 'Dept'), ('educationfield', 'EduField'), ('jobrole', 'JobRole')]:
+        if col in df:
+            df = df.join(pd.get_dummies(df[col], prefix=prefix)).drop(col, axis=1)
+    if 'maritalstatus' in df:
+        df = df.join(pd.get_dummies(df['maritalstatus'])).drop('maritalstatus', axis=1)
 
     # Ensure all columns exist and are in the correct order
     for col in model_columns:
@@ -628,40 +721,70 @@ def preprocess_employee_data(raw_data):
 
     df = df[model_columns]  # Reorder columns
 
+    # --- Apply the scaler loaded from encoders.pkl ---
+    scaler = encoder_data.get('scaler')
+    if scaler:
+        df = pd.DataFrame(scaler.transform(df), columns=model_columns)
+
     return df
 
-@app.route('/predict-attrition/<int:employee_id>')
-def predict_attrition(employee_id):
-    employee = get_employee_by_id(employee_id)
-    if not employee:
-        return "Employee not found", 404
-
-    # Preprocess
-    X = preprocess_employee_data(employee)
-    prediction = int(model.predict(X)[0])  # 0 or 1
-    # probability = float(model.predict_proba(X)[0][1])  # Probability of attrition
-
-    # Update the employee record in the database
+def predict_attrition_for_all():
+    """Predict attrition for all employees and update the database."""
+    employees = get_all_employees()
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute("""
-        UPDATE employees
-        SET attrition_risk = %s
-        WHERE employee_id = %s
-    """, (prediction, employee_id))
+    for emp in employees:
+        X = preprocess_employee_data(emp)
+        prediction = int(model.predict(X)[0])
+        # If you want probability, uncomment below:
+        # probability = float(model.predict_proba(X)[0][1])
+        cursor.execute("""
+            UPDATE employees
+            SET attrition_risk = %s
+            WHERE employee_id = %s
+        """, (prediction, emp['employee_id']))
     connection.commit()
     cursor.close()
     connection.close()
 
-    # Refresh employee data to include updated prediction
-    employee = get_employee_by_id(employee_id)
-
-    # Render the prediction info page
+@app.route('/predict-attrition')
+@login_required
+@role_required('hr')
+def predict_attrition():
+    # Predict and update attrition for all employees
+    predict_attrition_for_all()
+    # Fetch employees with attrition_risk = 1
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employees WHERE attrition_risk = 1")
+    high_risk_employees = cursor.fetchall()
+    cursor.close()
+    connection.close()
     return render_template(
         "hr/predict-attrition.html",
-        employee=employee,
-        attrition_prediction=prediction
+        employees=high_risk_employees
     )
 
-if __name__ == "__main__":
+@app.route('/delete-leave-request/<int:leave_id>', methods=['POST'])
+@login_required
+def delete_leave_request(leave_id):
+    # Only allow the employee who owns the leave request to delete it
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM leave_requests WHERE leave_id = %s AND employee_id = %s", (leave_id, session.get('employee_id')))
+    leave = cursor.fetchone()
+    if not leave:
+        flash('You are not authorized to delete this leave request.', 'error')
+        cursor.close()
+        connection.close()
+        return redirect(url_for('emp_leave'))
+
+    cursor.execute("DELETE FROM leave_requests WHERE leave_id = %s", (leave_id,))
+    connection.commit()
+    cursor.close()
+    connection.close()
+    flash('Leave request deleted successfully.', 'success')
+    return redirect(url_for('emp_leave'))
+
+if __name__ == '__main__':
     app.run(debug=True)

@@ -1,27 +1,96 @@
 {% extends "hr/base.html" %}
-{% block title %}Attrition Prediction{% endblock %}
+{% block title %}Attrition{% endblock %}
 {% block content %}
-<div class="container">
-    <h2>Attrition Prediction for {{ employee.name }}</h2>
-    <ul>
-        <li><strong>Employee ID:</strong> {{ employee.employee_id }}</li>
-        <li><strong>Position:</strong> {{ employee.position }}</li>
-        <li><strong>Department:</strong> {{ employee.department }}</li>
-        <li><strong>Status:</strong> {{ employee.status }}</li>
-    </ul>
-    <div>
-        <p>
-            <strong>Attrition Prediction:</strong>
-            {% if attrition_prediction == 1 %}
-                <span style="color: red;">Yes (At Risk)</span>
-            {% else %}
-                <span style="color: green;">No</span>
-            {% endif %}
-        </p>
-        <p>
-            <strong>Attrition Probability:</strong>
-            {{ (attrition_probability * 100) | round(2) }}%
-        </p>
-    </div>
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Attrition Risk</h1>
+{% endblock %}
+
+{% if employees %}
+<div class="overflow-x-auto rounded-lg shadow">
+  <table class="min-w-full bg-white">
+    <thead>
+      <tr class="bg-blue-50 text-blue-900">
+        <th class="py-3 px-4 text-left font-semibold">Name</th>
+        <th class="py-3 px-4 text-left font-semibold">Position</th>
+        <th class="py-3 px-4 text-left font-semibold">Department</th>
+        <th class="py-3 px-4 text-left font-semibold">Years</th>
+        <th class="py-3 px-4 text-left font-semibold">Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      <tr class="border-b hover:bg-blue-50 transition">
+        <td class="py-2 px-4">{{ emp.name }}</td>
+        <td class="py-2 px-4">{{ emp.position }}</td>
+        <td class="py-2 px-4">{{ emp.department }}</td>
+        <td class="py-2 px-4">{{ emp.years_at_company }}</td>
+        <td class="py-2 px-4">
+          <button 
+            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded shadow text-sm"
+            onclick="openModal('modal-{{ emp.employee_id }}')"
+          >
+            View
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+
+<!-- Modals -->
+{% for emp in employees %}
+<div 
+  id="modal-{{ emp.employee_id }}" 
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden"
+  aria-modal="true" role="dialog"
+>
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+    <div class="flex justify-between items-center border-b px-6 py-4">
+      <h2 class="text-lg font-semibold text-blue-700">Employee Details</h2>
+      <button onclick="closeModal('modal-{{ emp.employee_id }}')" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <div class="p-6">
+      <ul class="space-y-2">
+        <li><span class="font-semibold">Name:</span> {{ emp.name }}</li>
+        <li><span class="font-semibold">Employee ID:</span> {{ emp.employee_id }}</li>
+        <li><span class="font-semibold">Position:</span> {{ emp.position }}</li>
+        <li><span class="font-semibold">Department:</span> {{ emp.department }}</li>
+        <!-- <li><span class="font-semibold">Status:</span> {{ emp.status }}</li> -->
+        <li><span class="font-semibold">Years at Company:</span> {{ emp.years_at_company }}</li>
+        <li><span class="font-semibold">Gender:</span> {{ emp.gender }}</li>
+        <li><span class="font-semibold">Marital Status:</span> {{ emp.marital_status }}</li>
+        <li><span class="font-semibold">Education Field:</span> {{ emp.education_field }}</li>
+        <li><span class="font-semibold">OverTime:</span> {{ emp.overtime }}</li>
+        <li><span class="font-semibold">Attrition Risk:</span> <span class="text-red-600 font-bold">High</span></li>
+        {% if emp.attrition_probability %}
+        <li><span class="font-semibold">Attrition Probability:</span> {{ (emp.attrition_probability * 100) | round(2) }}%</li>
+        {% endif %}
+      </ul>
+    </div>
+    <div class="flex justify-end px-6 py-4 border-t">
+      <button onclick="closeModal('modal-{{ emp.employee_id }}')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded">Close</button>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+// Optional: Close modal on background click
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('bg-black')) {
+    e.target.classList.add('hidden');
+  }
+});
+</script>
+{% else %}
+<p class="text-gray-500 mt-8">No employees currently at high risk of attrition.</p>
+{% endif %}
 {% endblock %}

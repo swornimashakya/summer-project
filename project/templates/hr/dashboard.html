@@ -16,7 +16,9 @@
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">Attrition Rate</h3>
-            <p class="text-3xl font-bold text-[#EA4335]">2.5%</p>
+            <p class="text-3xl font-bold text-[#EA4335]">
+                {{ attrition_rate|round(2) }}%
+            </p>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">Leave Requests</h3>
@@ -25,7 +27,9 @@
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">At-Risk Staff</h3>
-            <p class="text-3xl font-bold text-[#34A853]">6</p>
+            <p class="text-3xl font-bold text-[#34A853]">
+                {{ at_risk_count }}
+            </p>
         </div>
     </div>
 
@@ -56,46 +60,53 @@
                 </span>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full divide-y divide-gray-200 text-xs">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                Name</th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                Start</th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                Type</th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                Period</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for request in leave_requests %}
-                        {% if request.status == 'Pending' %}
-                        <tr class="hover:bg-gray-50 transition-colors duration-150">
-                            <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{
-                                (request.name).split()[0] }}</td>
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.start_date }}</td>
-                            <td class="px-4 py-2 whitespace-nowrap">
-                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    {% if request.type == 'Annual' %}bg-[#34A853] text-white
-                                    {% elif request.type == 'Sick' %}bg-[#EA4335] text-white
-                                    {% else %}bg-[#FBBC05] text-white
-                                    {% endif %}">
-                                    {{ request.type }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.total_days }} days
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <div class="max-h-80 overflow-y-auto">
+                    <table class="w-full divide-y divide-gray-200 text-xs">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th
+                                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    Name</th>
+                                <th
+                                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    Start</th>
+                                <th
+                                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    Type</th>
+                                <th
+                                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for request in leave_requests %}
+                            {% if request.status == 'Pending' %}
+                            <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{
+                                    (request.name).split()[0] }}</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.start_date }}</td>
+                                <td class="px-4 py-2 whitespace-nowrap">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                                        {% if request.type == 'Annual Leave' or request.type == 'Annual' %}
+                                            bg-blue-100 text-blue-800
+                                        {% elif request.type == 'Sick Leave' or request.type == 'Sick' %}
+                                            bg-pink-100 text-pink-800
+                                        {% elif request.type == 'Personal Leave' or request.type == 'Personal' %}
+                                            bg-purple-100 text-purple-800
+                                        {% else %}
+                                            bg-gray-100 text-gray-800
+                                        {% endif %}">
+                                        {{ request.type }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ request.total_days }} days
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

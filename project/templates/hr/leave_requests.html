@@ -45,10 +45,17 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ request.name }}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-500">{{ request.dept }}</td>
                         <td class="px-4 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if request.type == 'Annual' %}bg-green-100 text-green-800
-                                {% elif request.type == 'Sick' %}bg-red-100 text-red-800
-                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if request.type == 'Annual Leave' %}
+                                    bg-blue-100 text-blue-800
+                                {% elif request.type == 'Sick Leave' %}
+                                    bg-pink-100 text-pink-800
+                                {% elif request.type == 'Personal Leave' %}
+                                    bg-purple-100 text-purple-800
+                                {% else %}
+                                    bg-gray-100 text-gray-800
+                                {% endif %}
+                            ">
                                 {{ request.type }}
                             </span>
                         </td>

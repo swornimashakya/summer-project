@@ -1,0 +1,54 @@
+{% extends "emp/employee_base.html" %}
+
+{% block title %}Edit Profile Details{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto bg-white rounded-lg shadow-lg p-8 mt-8">
+    <h2 class="text-2xl font-bold mb-6">Edit Profile Details</h2>
+    <form method="POST">
+        <div class="mb-4">
+            <label class="block text-gray-700">Date of Birth</label>
+            <input type="date" name="dob" value="{{ employee.dob or '' }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700">Education Field</label>
+            <select name="education_field" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                <option value="">Select</option>
+                <option value="Medical" {% if employee.education_field == 'Medical' %}selected{% endif %}>Medical</option>
+                <option value="Technical Degree" {% if employee.education_field == 'Technical Degree' %}selected{% endif %}>Technical Degree</option>
+                <option value="Life Sciences" {% if employee.education_field == 'Life Sciences' %}selected{% endif %}>Life Sciences</option>
+                <option value="Marketing" {% if employee.education_field == 'Marketing' %}selected{% endif %}>Marketing</option>
+                <option value="Human Resources" {% if employee.education_field == 'Human Resources' %}selected{% endif %}>Human Resources</option>
+            </select>
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700">Total Working Years</label>
+            <input type="number" name="total_working_years" value="{{ employee.total_working_years or '' }}" min="0" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700">Distance from Home (km)</label>
+            <input type="number" name="distance_from_home" value="{{ employee.distance_from_home or '' }}" min="0" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700">Marital Status</label>
+            <select name="marital_status" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                <option value="">Select</option>
+                <option value="Single" {% if employee.marital_status == 'Single' %}selected{% endif %}>Single</option>
+                <option value="Married" {% if employee.marital_status == 'Married' %}selected{% endif %}>Married</option>
+                <option value="Divorced" {% if employee.marital_status == 'Divorced' %}selected{% endif %}>Divorced</option>
+            </select>
+        </div>
+        <div class="mb-6">
+            <label class="block text-gray-700">Gender</label>
+            <select name="gender" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                <option value="">Select</option>
+                <option value="Male" {% if employee.gender == 'Male' %}selected{% endif %}>Male</option>
+                <option value="Female" {% if employee.gender == 'Female' %}selected{% endif %}>Female</option>
+            </select>
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -86,13 +86,28 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         {% for leave_request in leave_requests %}
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['leave_id'] }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['type'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                              <span class="px-2 py-1 text-sm rounded-full
+                                {% if leave_request['type'] == 'Annual Leave' %}
+                                  bg-blue-100 text-blue-800
+                                {% elif leave_request['type'] == 'Sick Leave' %}
+                                  bg-pink-100 text-pink-800
+                                {% elif leave_request['type'] == 'Personal Leave' %}
+                                  bg-purple-100 text-purple-800
+                                {% else %}
+                                  bg-gray-100 text-gray-800
+                                {% endif %}
+                              ">
+                                {{ leave_request['type'] }}
+                              </span>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['start_date'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['end_date'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['total_days'] }}</td>
@@ -110,6 +125,11 @@
                                 <span class="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">Rejected</span>
                             </td>
                             {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <form action="{{ url_for('delete_leave_request', leave_id=leave_request['leave_id']) }}" method="post" style="display:inline;">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 ml-4" onclick="return confirm('Are you sure you want to delete this leave request?');">Delete</button>
+                                </form>
+                            </td>
                         </tr>
                         {% endfor %}
                         <!-- Add more rows as needed -->
@@ -119,4 +139,19 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+        <div class="px-4 py-3 rounded relative mb-2
+            {% if category == 'success' %}bg-green-100 text-green-800
+            {% elif category == 'error' %}bg-red-100 text-red-800
+            {% else %}bg-blue-100 text-blue-800{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+{% endblock %}

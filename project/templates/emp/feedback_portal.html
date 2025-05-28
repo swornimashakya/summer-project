@@ -1,0 +1,82 @@
+{% extends "emp/employee_base.html" %}
+
+{% block title %}Feedback Portal{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto bg-white rounded-lg shadow-lg p-8 mt-8">
+    <h2 class="text-2xl font-bold mb-6 text-blue-700">Feedback Portal</h2>
+    <form method="POST" class="space-y-6">
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Job Satisfaction</label>
+            <div class="flex space-x-4">
+                {% for i in range(1, 5) %}
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="job_satisfaction" value="{{ i }}" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">{{ i }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Overtime</label>
+            <div class="flex space-x-4">
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="overtime" value="No" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">No</span>
+                </label>
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="overtime" value="Yes" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">Yes</span>
+                </label>
+            </div>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Environment Satisfaction</label>
+            <div class="flex space-x-4">
+                {% for i in range(1, 5) %}
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="env_satisfaction" value="{{ i }}" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">{{ i }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Job Involvement</label>
+            <div class="flex space-x-4">
+                {% for i in range(1, 5) %}
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="job_involvement" value="{{ i }}" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">{{ i }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Job Level</label>
+            <div class="flex space-x-4">
+                {% for i in range(1, 6) %}
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="job_level" value="{{ i }}" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">{{ i }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <label class="block text-gray-700 font-semibold mb-2">Work Life Balance</label>
+            <div class="flex space-x-4">
+                {% for i in range(1, 5) %}
+                <label class="flex flex-row items-center bg-blue-50 rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-100 transition">
+                    <input type="radio" name="work_life_balance" value="{{ i }}" required class="accent-blue-600 mr-2">
+                    <span class="text-blue-700 font-medium">{{ i }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold shadow">Submit Feedback</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
