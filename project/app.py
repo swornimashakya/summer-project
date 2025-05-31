@@ -8,6 +8,7 @@ from flask_mail import Mail, Message
 import config  # Import the config module
 import pickle
 import pandas as pd
+from calendar import monthrange
 
 app = Flask(__name__)
 
@@ -63,7 +64,7 @@ def calculate_leave_days(start_date, end_date, duration):
     if duration == 'Half Day':
         total_days = total_days / 2
     
-    return int(total_days)
+    return total_days
 
 def calculate_age(dob):
     """Calculate age from date of birth (dob: 'YYYY-MM-DD' or date object)."""
@@ -204,10 +205,15 @@ def dashboard():
     cursor.execute("SELECT * FROM employees")
     employees = cursor.fetchall()
 
+    # --- Anniversaries logic (moved to function) ---
+    anniversaries = get_anniversaries_this_month(employees)
+    birthdays = get_birthdays_this_month(employees)
+
     # Get department distribution
     cursor.execute("""
         SELECT department, COUNT(*) as count
         FROM employees
+        WHERE department IN ('Research & Development', 'Human Resources', 'Sales', 'HR')
         GROUP BY department
     """)
     dept_data = cursor.fetchall()
@@ -240,6 +246,8 @@ def dashboard():
                         position=session.get('position'),
                         leave_requests=leave_requests,
                         employees=employees,
+                        anniversaries=anniversaries,
+                        birthdays=birthdays,
                         department_labels=department_labels,
                         department_data=department_data,
                         age_labels=age_labels,
@@ -284,16 +292,42 @@ def add_employee():
         # Calculate years with decimal precision
         years_at_company = current_date.year - date_joined_obj.year
 
+        # Get the next employee_id manually
+        cursor.execute("SELECT MAX(employee_id) FROM employees")
+        last_id = cursor.fetchone()[0] or 0
+        employee_id = last_id + 1
+
         cursor.execute(
-            "INSERT INTO employees (name, position, department, salary, years_at_company) "
+            "INSERT INTO employees (employee_id, name, position, department, salary, years_at_company) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
-            (name, position, department, salary, years_at_company)
+            (employee_id, name, position, department, salary, years_at_company)
         )
-        
+        # --- Create user account for the new employee ---
+        # Generate a unique email for the employee
+        base_email = f"{name.lower().replace(' ', '')}@company.com"
+        email = base_email
+        suffix = 1
+        cursor.execute("SELECT COUNT(*) FROM users WHERE email = %s", (email,))
+        while cursor.fetchone()[0] > 0:
+            email = f"{name.lower().replace(' ', '')}{suffix}@company.com"
+            cursor.execute("SELECT COUNT(*) FROM users WHERE email = %s", (email,))
+            suffix += 1
+        raw_password = "default123"
+        hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        role = 'employee'
+        cursor.execute(
+            "INSERT INTO users (employee_id, email, password, role) VALUES (%s, %s, %s, %s)",
+            (employee_id, email, hashed_password, role)
+        )
+        # --- End user account creation ---
+
         connection.commit()
         cursor.close()
         connection.close()
 
+        # Predict attrition for the new employee
+        predict_attrition_for_employee(employee_id)
+        flash_attrition_status(employee_id)
         flash('Employee added successfully', 'success')
         return redirect(url_for('employees'))
     return render_template('hr/add_employee.html', employees=[])
@@ -305,13 +339,19 @@ def edit_employee(employee_id):
         position = request.form['position']
         department = request.form['department']
         salary = request.form['salary']
-        years_at_company = request.form['years_at_company']
+        date_joined = request.form['date_joined']
         # age = request.form['age']
         # marital_status = request.form['marital_status']
 
         connection = get_db_connection()
         cursor = connection.cursor()
 
+        # Convert date_joined string to datetime object
+        date_joined_obj = datetime.strptime(date_joined, '%Y-%m-%d')
+        current_date = datetime.now()
+        # Calculate years with decimal precision
+        years_at_company = current_date.year - date_joined_obj.year
+        
         cursor.execute("""
             UPDATE employees
             SET name = %s, position = %s, department = %s, salary = %s
@@ -323,6 +363,9 @@ def edit_employee(employee_id):
         cursor.close()
         connection.close()
 
+        # Predict attrition for the updated employee
+        predict_attrition_for_employee(employee_id)
+        flash_attrition_status(employee_id)
         flash('Employee updated successfully', 'success')
         return redirect(url_for('employees'))
     
@@ -331,12 +374,15 @@ def edit_employee(employee_id):
         flash('Employee not found', 'error')
         return redirect(url_for('employees'))
         
-    return render_template('hr/edit_employee.html', employee=employee)
+    return render_template('hr/edit_employee.html', employee=employee, employees=[])
         
 @app.route('/employees/delete_employee/<int:employee_id>') 
 def delete_employee(employee_id):
     connection = get_db_connection()
     cursor = connection.cursor()
+    # Delete from users table first to avoid foreign key constraint issues
+    cursor.execute("DELETE FROM users WHERE employee_id = %s", (employee_id,))
+    # Then delete from employees table
     cursor.execute("DELETE FROM employees WHERE employee_id = %s", (employee_id,))
     connection.commit()
     cursor.close()
@@ -351,7 +397,11 @@ def get_chart_data(query_type):
     cursor = connection.cursor(dictionary=True)
     
     if query_type == 'department':
-        cursor.execute("SELECT department, COUNT(*) as count FROM employees GROUP BY department")
+        cursor.execute("""
+            SELECT department, COUNT(*) as count FROM employees 
+            WHERE department IN ('Research & Development', 'Human Resources', 'Sales', 'HR')
+            GROUP BY department
+        """)
         data = cursor.fetchall()
         labels = [item['department'] for item in data]
         counts = [item['count'] for item in data]
@@ -429,6 +479,7 @@ def reports():
     cursor.execute("""
         SELECT department, COUNT(*) as count
         FROM employees
+        WHERE department IN ('Research & Development', 'Human Resources', 'Sales', 'HR')
         GROUP BY department
     """)
     dept_data = cursor.fetchall()
@@ -496,6 +547,10 @@ def reports():
 @app.route('/employee_view')
 def employee_view():
     employee = get_employee_by_id(session.get('employee_id'))
+    # Prompt if profile details are missing
+    required_fields = ['dob', 'edufield', 'total_working_years', 'distance', 'marital_status', 'gender']
+    if any(not employee.get(field) for field in required_fields):
+        flash('Please complete your profile details for accurate attrition prediction.', 'warning')
     age = calculate_age(employee.get('dob'))
     return render_template("emp/employee_view.html",
         employee_id=employee['employee_id'],
@@ -548,8 +603,9 @@ def emp_edit_details():
         connection.commit()
         cursor.close()
         connection.close()
-        # Predict attrition for all employees after update
-        predict_attrition_for_all()
+        # Predict attrition for this employee after update
+        predict_attrition_for_employee(employee_id)
+        flash_attrition_status(employee_id)
         flash('Profile updated successfully.', 'success')
         return redirect(url_for('employee_view'))
 
@@ -586,8 +642,9 @@ def feedback_portal():
         connection.commit()
         cursor.close()
         connection.close()
-        # Predict attrition for all employees after feedback update
-        predict_attrition_for_all()
+        # Predict attrition for this employee after feedback update
+        predict_attrition_for_employee(employee_id)
+        flash_attrition_status(employee_id)
         flash('Feedback submitted successfully.', 'success')
         return redirect(url_for('employee_view'))
     return render_template('emp/feedback_portal.html')
@@ -728,6 +785,24 @@ def preprocess_employee_data(raw_data):
 
     return df
 
+def predict_attrition_for_employee(employee_id):
+    """Predict attrition for a single employee and update the database."""
+    emp = get_employee_by_id(employee_id)
+    if not emp:
+        return
+    X = preprocess_employee_data(emp)
+    prediction = int(model.predict(X)[0])
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        UPDATE employees
+        SET attrition_risk = %s
+        WHERE employee_id = %s
+    """, (prediction, employee_id))
+    connection.commit()
+    cursor.close()
+    connection.close()
+
 def predict_attrition_for_all():
     """Predict attrition for all employees and update the database."""
     employees = get_all_employees()
@@ -736,8 +811,6 @@ def predict_attrition_for_all():
     for emp in employees:
         X = preprocess_employee_data(emp)
         prediction = int(model.predict(X)[0])
-        # If you want probability, uncomment below:
-        # probability = float(model.predict_proba(X)[0][1])
         cursor.execute("""
             UPDATE employees
             SET attrition_risk = %s
@@ -785,6 +858,94 @@ def delete_leave_request(leave_id):
     connection.close()
     flash('Leave request deleted successfully.', 'success')
     return redirect(url_for('emp_leave'))
+
+@role_required('hr')
+def flash_attrition_status(employee_id):
+    """Fetch attrition_risk for employee and flash a message."""
+    emp = get_employee_by_id(employee_id)
+    if emp is not None:
+        risk = emp.get('attrition_risk', 0)
+        if risk == 1:
+            flash('Warning: This employee is at risk of attrition.', 'warning')
+        else:
+            flash('This employee is not currently at risk of attrition.', 'info')
+
+def get_anniversaries_this_month(employees):
+    """Return a list of employees whose work anniversaries are in the current month, with labels for today/tomorrow."""
+    today = datetime.today()
+    current_month = today.month
+    anniversaries = []
+    for emp in employees:
+        date_joined = emp.get('date_joined')
+        if not date_joined or date_joined in ('', None):
+            continue
+        # Defensive: handle both string and datetime
+        if isinstance(date_joined, str):
+            try:
+                joined_date = datetime.strptime(date_joined, '%Y-%m-%d')
+            except Exception:
+                continue
+        else:
+            joined_date = date_joined
+        if joined_date.month == current_month:
+            anniv_day = joined_date.day
+            # Calculate years at company
+            years = today.year - joined_date.year - ((today.month, today.day) < (joined_date.month, joined_date.day))
+            # Make a copy so we don't mutate the original
+            emp_copy = dict(emp)
+            emp_copy['years_at_company'] = years
+            # Annotate if today or tomorrow
+            if anniv_day == today.day:
+                emp_copy['anniversary_label'] = 'Today'
+            elif anniv_day == (today + timedelta(days=1)).day:
+                emp_copy['anniversary_label'] = 'Tomorrow'
+            else:
+                emp_copy['anniversary_label'] = ''
+            anniversaries.append(emp_copy)
+    # Sort by anniversary day, show up to 5
+    anniversaries = sorted(
+        anniversaries,
+        key=lambda e: datetime.strptime(str(e.get('date_joined')), '%Y-%m-%d').day if e.get('date_joined') else 0
+    )[:5]
+    return anniversaries
+
+def get_birthdays_this_month(employees):
+    """Return a list of employees whose birthdays are in the current month, with labels for today/tomorrow."""
+    today = datetime.today()
+    current_month = today.month
+    birthdays = []
+    for emp in employees:
+        dob = emp.get('dob')
+        if not dob or dob in ('', None):
+            continue
+        # Defensive: handle both string and datetime
+        if isinstance(dob, str):
+            try:
+                dob_date = datetime.strptime(dob, '%Y-%m-%d')
+            except Exception:
+                continue
+        else:
+            dob_date = dob
+        if dob_date.month == current_month:
+            bday_day = dob_date.day
+            # Calculate age
+            age = today.year - dob_date.year - ((today.month, today.day) < (dob_date.month, dob_date.day))
+            emp_copy = dict(emp)
+            emp_copy['age'] = age
+            # Annotate if today or tomorrow
+            if bday_day == today.day:
+                emp_copy['birthday_label'] = 'Today'
+            elif bday_day == (today + timedelta(days=1)).day:
+                emp_copy['birthday_label'] = 'Tomorrow'
+            else:
+                emp_copy['birthday_label'] = ''
+            birthdays.append(emp_copy)
+    # Sort by birthday day, show up to 5
+    birthdays = sorted(
+        birthdays,
+        key=lambda e: datetime.strptime(str(e.get('dob')), '%Y-%m-%d').day if e.get('dob') else 0
+    )[:5]
+    return birthdays
 
 if __name__ == '__main__':
     app.run(debug=True)

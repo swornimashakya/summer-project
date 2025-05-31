@@ -52,22 +52,43 @@
       <button onclick="closeModal('modal-{{ emp.employee_id }}')" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
     </div>
     <div class="p-6">
-      <ul class="space-y-2">
-        <li><span class="font-semibold">Name:</span> {{ emp.name }}</li>
-        <li><span class="font-semibold">Employee ID:</span> {{ emp.employee_id }}</li>
-        <li><span class="font-semibold">Position:</span> {{ emp.position }}</li>
-        <li><span class="font-semibold">Department:</span> {{ emp.department }}</li>
-        <!-- <li><span class="font-semibold">Status:</span> {{ emp.status }}</li> -->
-        <li><span class="font-semibold">Years at Company:</span> {{ emp.years_at_company }}</li>
-        <li><span class="font-semibold">Gender:</span> {{ emp.gender }}</li>
-        <li><span class="font-semibold">Marital Status:</span> {{ emp.marital_status }}</li>
-        <li><span class="font-semibold">Education Field:</span> {{ emp.education_field }}</li>
-        <li><span class="font-semibold">OverTime:</span> {{ emp.overtime }}</li>
-        <li><span class="font-semibold">Attrition Risk:</span> <span class="text-red-600 font-bold">High</span></li>
-        {% if emp.attrition_probability %}
-        <li><span class="font-semibold">Attrition Probability:</span> {{ (emp.attrition_probability * 100) | round(2) }}%</li>
-        {% endif %}
-      </ul>
+      <div class="grid grid-cols-2 gap-6">
+        <ul class="space-y-2">
+          <li><span class="font-semibold">Name:</span> {{ emp.name }}</li>
+          <li><span class="font-semibold">Employee ID:</span> {{ emp.employee_id }}</li>
+          <li><span class="font-semibold">Date of Birth:</span> {{ emp.dob }}</li>
+          <li><span class="font-semibold">Age:</span> {{ emp.age }}</li>
+          <li><span class="font-semibold">Position:</span> {{ emp.position }}</li>
+          <li><span class="font-semibold">Department:</span> {{ emp.department }}</li>
+          <li><span class="font-semibold">Salary:</span> {{ emp.salary }}</li>
+          <li><span class="font-semibold">Total Working Years:</span> {{ emp.total_working_years }}</li>
+          <li><span class="font-semibold">Years at Company:</span> {{ emp.years_at_company }}</li>
+          <li><span class="font-semibold">Date Joined:</span> {{ emp.date_joined }}</li>
+        </ul>
+        <ul class="space-y-2">
+          <li><span class="font-semibold">Marital Status:</span> {{ emp.marital_status }}</li>
+          <li><span class="font-semibold">Gender:</span> {{ emp.gender }}</li>
+          <li><span class="font-semibold">Education Field:</span> {{ emp.edufield }}</li>
+          <li><span class="font-semibold">Environment Satisfaction:</span> {{ emp.env_satisfaction }}</li>
+          <li><span class="font-semibold">Job Involvement:</span> {{ emp.job_involvement }}</li>
+          <li><span class="font-semibold">Job Level:</span> {{ emp.job_level }}</li>
+          <li><span class="font-semibold">Job Satisfaction:</span> {{ emp.job_satisfaction }}</li>
+          <li><span class="font-semibold">OverTime:</span> {{ emp.overtime }}</li>
+          <li><span class="font-semibold">Work Life Balance:</span> {{ emp.work_life_balance }}</li>
+          <li><span class="font-semibold">Distance from Home:</span> {{ emp.distance }}</li>
+          <li>
+            <span class="font-semibold">Attrition Risk:</span>
+            {% if emp.attrition_risk == 1 %}
+              <span class="text-red-600 font-bold">High</span>
+            {% else %}
+              <span class="text-green-600 font-bold">Low</span>
+            {% endif %}
+          </li>
+          {% if emp.attrition_probability %}
+          <li><span class="font-semibold">Attrition Probability:</span> {{ (emp.attrition_probability * 100) | round(2) }}%</li>
+          {% endif %}
+        </ul>
+      </div>
     </div>
     <div class="flex justify-end px-6 py-4 border-t">
       <button onclick="closeModal('modal-{{ emp.employee_id }}')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded">Close</button>

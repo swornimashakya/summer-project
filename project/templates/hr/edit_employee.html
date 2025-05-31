@@ -7,58 +7,59 @@
 {% endblock %}
 
 {% block content %}
-    <form action="{{ url_for('edit_employee', employee_id=employee.id) }}" method="POST">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4">
+          {% for category, message in messages %}
+            <div class="px-4 py-2 mb-2 rounded 
+                {% if category == 'success' %}bg-green-100 text-green-800
+                {% elif category == 'warning' %}bg-yellow-100 text-yellow-800
+                {% elif category == 'error' %}bg-red-100 text-red-800
+                {% else %}bg-blue-100 text-blue-800{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    <form action="{{ url_for('edit_employee', employee_id=employee['employee_id']) }}" method="POST">
         <div class="mb-4">
             <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
             <input type="text" id="name" name="name" value="{{ employee.name }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>
         <div class="mb-4">
             <label for="position" class="block text-gray-700 text-sm font-bold mb-2">Position</label>
-            <input type="text" id="position" name="position" value="{{ employee.position }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            <select id="position" name="position" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="" disabled>Select Position</option>
+                <option value="Laboratory Technician" {% if employee.position == 'Laboratory Technician' %}selected{% endif %}>Laboratory Technician</option>
+                <option value="Research Scientist" {% if employee.position == 'Research Scientist' %}selected{% endif %}>Research Scientist</option>
+                <option value="Manufacturing Director" {% if employee.position == 'Manufacturing Director' %}selected{% endif %}>Manufacturing Director</option>
+                <option value="Manager" {% if employee.position == 'Manager' %}selected{% endif %}>Manager</option>
+                <option value="Research Director" {% if employee.position == 'Research Director' %}selected{% endif %}>Research Director</option>
+                <option value="Sales Executive" {% if employee.position == 'Sales Executive' %}selected{% endif %}>Sales Executive</option>
+                <option value="Healthcare Representative" {% if employee.position == 'Healthcare Representative' %}selected{% endif %}>Healthcare Representative</option>
+                <option value="Sales Representative" {% if employee.position == 'Sales Representative' %}selected{% endif %}>Sales Representative</option>
+            </select>
         </div>
         <div class="mb-4">
             <label for="department" class="block text-gray-700 text-sm font-bold mb-2">Department</label>
             <select id="department" name="department" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="Engineering" {% if employee.department == 'Engineering' %}selected{% endif %}>Engineering</option>
-                <option value="Product" {% if employee.department == 'Product' %}selected{% endif %}>Product</option>
+                <option value="" disabled>Select Department</option>
+                <option value="Research & Development" {% if employee.department == 'Research & Development' %}selected{% endif %}>Research & Development</option>
+                <option value="Human Resources" {% if employee.department == 'Human Resources' %}selected{% endif %}>Human Resources</option>
                 <option value="Sales" {% if employee.department == 'Sales' %}selected{% endif %}>Sales</option>
-                <option value="People" {% if employee.department == 'People' %}selected{% endif %}>People</option>
-                <option value="R&D" {% if employee.department == 'R&D' %}selected{% endif %}>R&D</option>
+                <option value="HR" {% if employee.department == 'HR' %}selected{% endif %}>HR</option>
             </select>
         </div>
-        
         <div class="mb-4">
             <label for="salary" class="block text-gray-700 text-sm font-bold mb-2">Salary</label>
             <input type="number" id="salary" name="salary" value="{{ employee.salary }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>
         <div class="mb-4">
-            <label for="years_at_company" class="block text-gray-700 text-sm font-bold mb-2">Years at Company</label>
-            <input type="number" id="years_at_company" name="years_at_company" value="{{ employee.years_at_company }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" step="0.1">
+            <label for="date_joined" class="block text-gray-700 text-sm font-bold mb-2">Date Joined</label>
+            <input type="date" id="date_joined" name="date_joined" value="{{ employee.date_joined or '' }}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>
-        <div class="mb-4">
-            <label for="marital_status" class="block text-gray-700 text-sm font-bold mb-2">Marital Status</label>
-            <select id="marital_status" name="marital_status" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="Single" {% if employee.marital_status == 'Single' %}selected{% endif %}>Single</option>
-                <option value="Married" {% if employee.marital_status == 'Married' %}selected{% endif %}>Married</option>
-                <option value="Divorced" {% if employee.marital_status == 'Divorced' %}selected{% endif %}>Divorced</option>
-            </select>
-        </div>
-        <div class="mb-4">
-            <label for="status" class="block text-gray-700 text-sm font-bold mb-2">Status</label>
-            <div class="mt-2">
-                <input type="radio" id="status_active" name="status" value="Active" {% if employee.status == 'Active' %}checked{% endif %} class="m-2">
-                <label for="status_active">Active</label>
-                
-                <input type="radio" id="status_left" name="status" value="Left" {% if employee.status == 'Left' %}checked{% endif %} class="m-2">
-                <label for="status_left">Left</label>
-                
-                <input type="radio" id="status_leave" name="status" value="On Leave" {% if employee.status == 'On Leave' %}checked{% endif %} class="m-2">
-                <label for="status_leave">On Leave</label>
-            </div>
-        </div>
-        <div class="flex space-x-4">
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Changes</button>
-            <a href="{{ url_for('employees') }}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</a>
-        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Changes</button>
+        <a href="{{ url_for('employees') }}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 ml-2">Cancel</a>
     </form>
-{% endblock %} 
+{% endblock %}

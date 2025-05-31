@@ -17,7 +17,7 @@
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
             <h3 class="text-gray-500 text-sm font-medium">Attrition Rate</h3>
             <p class="text-3xl font-bold text-[#EA4335]">
-                {{ attrition_rate|round(2) }}%
+                {{ attrition_rate|round(1) }}%
             </p>
         </div>
         <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform duration-200">
@@ -112,24 +112,27 @@
     </div>
 
     <!-- Additional Info Grid -->
+    <!-- Extra Info -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Employee List -->
+        <!-- At-Risk Employees -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Employee List</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">At-Risk Employees</h3>
             <div class="space-y-4">
-                {% for employee in employees[:5] %}
-                <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
-                    <div class="flex-shrink-0">
-                        <div
-                            class="w-10 h-10 rounded-full bg-[#4285F4] flex items-center justify-center text-white font-semibold">
-                            {{ employee.name[0] }}
+                {% for employee in employees %}
+                    {% if employee.attrition_risk == 1 %}
+                    <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                        <div class="flex-shrink-0">
+                            <div
+                                class="w-10 h-10 rounded-full bg-[#34A853] flex items-center justify-center text-white font-semibold">
+                                {{ employee.name[0] }}
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
+                            <p class="text-xs text-gray-500">{{ employee.position }}</p>
                         </div>
                     </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
-                        <p class="text-xs text-gray-500">{{ employee.position }}</p>
-                    </div>
-                </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         </div>
@@ -138,22 +141,28 @@
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Anniversaries</h3>
             <div class="space-y-4">
-                {% for employee in employees[:5] %}
-                <div
-                    class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
-                    <div class="flex items-center space-x-3">
-                        <div
-                            class="w-8 h-8 rounded-full bg-[#FBBC05] flex items-center justify-center text-white text-sm font-semibold">
-                            {{ employee.name[0] }}
+                {% if anniversaries and anniversaries|length > 0 %}
+                    {% for employee in anniversaries %}
+                    <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-[#FBBC05] flex items-center justify-center text-white text-sm font-semibold">
+                                {{ employee.name[0] if employee.name else '?' }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{ employee.name or 'Unknown' }}</p>
+                                <p class="text-xs text-gray-500">
+                                    {{ employee.years_at_company if employee.years_at_company is not none else '?' }} years
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
-                            <p class="text-xs text-gray-500">{{ employee.years_at_company }} years</p>
-                        </div>
+                        {% if employee.anniversary_label %}
+                            <span class="text-xs text-[#4285F4] font-medium">{{ employee.anniversary_label }}</span>
+                        {% endif %}
                     </div>
-                    <span class="text-xs text-[#4285F4] font-medium">Today</span>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <div class="text-xs text-gray-500">No anniversaries this month.</div>
+                {% endif %}
             </div>
         </div>
 
@@ -161,22 +170,28 @@
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Birthdays</h3>
             <div class="space-y-4">
-                {% for employee in employees[:5] %}
-                <div
-                    class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
-                    <div class="flex items-center space-x-3">
-                        <div
-                            class="w-8 h-8 rounded-full bg-[#EA4335] flex items-center justify-center text-white text-sm font-semibold">
-                            {{ employee.name[0] }}
+                {% if birthdays and birthdays|length > 0 %}
+                    {% for employee in birthdays %}
+                    <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-[#EA4335] flex items-center justify-center text-white text-sm font-semibold">
+                                {{ employee.name[0] if employee.name else '?' }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{ employee.name or 'Unknown' }}</p>
+                                <p class="text-xs text-gray-500">
+                                    {{ employee.age if employee.age is not none else '?' }} years
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">{{ employee.name }}</p>
-                            <p class="text-xs text-gray-500">{{ employee.age }} years</p>
-                        </div>
+                        {% if employee.birthday_label %}
+                            <span class="text-xs text-[#4285F4] font-medium">{{ employee.birthday_label }}</span>
+                        {% endif %}
                     </div>
-                    <span class="text-xs text-[#4285F4] font-medium">Today</span>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <div class="text-xs text-gray-500">No birthdays this month.</div>
+                {% endif %}
             </div>
         </div>
     </div>
