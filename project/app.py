@@ -119,6 +119,80 @@ def get_employee_by_id(employee_id):
     connection.close()
     return employee
 
+def preprocess_employee_data(raw_data):
+    """
+    raw_data: dict or DataFrame with the same columns as in the database
+    Returns: DataFrame ready for prediction
+    """
+    # Standardize keys to match database (lowercase)
+    data = {k.lower(): v for k, v in raw_data.items()}
+    df = pd.DataFrame([data])
+
+    # Binary encoding with safe get
+    df['gender'] = df.get('gender', pd.Series([None]))
+    df['gender'] = df['gender'].map({'Male': 1, 'Female': 0})
+
+    df['overtime'] = df.get('overtime', pd.Series([None]))
+    df['overtime'] = df['overtime'].map({'Yes': 1, 'No': 0})
+
+    df['attrition'] = df.get('attrition', 0)  # If present
+
+    # One-hot encoding (must match training)
+    for col, prefix in [('department', 'Dept'), ('educationfield', 'EduField'), ('jobrole', 'JobRole')]:
+        if col in df:
+            df = df.join(pd.get_dummies(df[col], prefix=prefix)).drop(col, axis=1)
+    if 'maritalstatus' in df:
+        df = df.join(pd.get_dummies(df['maritalstatus'])).drop('maritalstatus', axis=1)
+
+    # Ensure all columns exist and are in the correct order
+    for col in model_columns:
+        if col not in df.columns:
+            df[col] = 0  # Add missing columns as zeros
+
+    df = df[model_columns]  # Reorder columns
+
+    # --- Apply the scaler loaded from encoders.pkl ---
+    scaler = encoder_data.get('scaler')
+    if scaler:
+        df = pd.DataFrame(scaler.transform(df), columns=model_columns)
+
+    return df
+
+def predict_attrition_for_employee(employee_id):
+    """Predict attrition for a single employee and update the database."""
+    emp = get_employee_by_id(employee_id)
+    if not emp:
+        return
+    X = preprocess_employee_data(emp)
+    prediction = int(model.predict(X)[0])
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        UPDATE employees
+        SET attrition_risk = %s
+        WHERE employee_id = %s
+    """, (prediction, employee_id))
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+def predict_attrition_for_all():
+    """Predict attrition for all employees and update the database."""
+    employees = get_all_employees()
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    for emp in employees:
+        X = preprocess_employee_data(emp)
+        prediction = int(model.predict(X)[0])
+        cursor.execute("""
+            UPDATE employees
+            SET attrition_risk = %s
+            WHERE employee_id = %s
+        """, (prediction, emp['employee_id']))
+    connection.commit()
+    cursor.close()
+    connection.close()
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -178,6 +252,16 @@ def login():
     else:
         return render_template('auth/login.html')
 
+def get_departments():
+    """Fetch unique department names from the employees table."""
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT DISTINCT department FROM employees")
+    departments = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    connection.close()
+    return departments
+
 @app.route('/dashboard')
 @login_required
 @role_required('hr')
@@ -198,6 +282,7 @@ def dashboard():
     leave_requests = get_leave_requests()
 
     # Calculate at risk employees
+    predict_attrition_for_all()  # Ensure attrition risk is updated
     cursor.execute("SELECT COUNT(*) AS at_risk_count FROM employees WHERE attrition_risk = 1")
     at_risk_count = cursor.fetchone()['at_risk_count']
 
@@ -209,13 +294,15 @@ def dashboard():
     anniversaries = get_anniversaries_this_month(employees)
     birthdays = get_birthdays_this_month(employees)
 
-    # Get department distribution
-    cursor.execute("""
+    # Get department distribution dynamically
+    departments = get_departments()
+    format_strings = ','.join(['%s'] * len(departments))
+    cursor.execute(f"""
         SELECT department, COUNT(*) as count
         FROM employees
-        WHERE department IN ('Research & Development', 'Human Resources', 'Sales', 'HR')
+        WHERE department IN ({format_strings})
         GROUP BY department
-    """)
+    """, tuple(departments))
     dept_data = cursor.fetchall()
     department_labels = [row['department'] for row in dept_data]
     department_data = [row['count'] for row in dept_data]
@@ -237,8 +324,99 @@ def dashboard():
     """)
     age_data = cursor.fetchall()
     age_labels = [row['age_group'] for row in age_data]
-    age_data = [row['count'] for row in age_data]
-                
+    age_data_counts = [row['count'] for row in age_data]
+
+    # Get salary distribution (5k bands)
+    cursor.execute("""
+        SELECT 
+            CONCAT(FLOOR(salary/5000)*5, 'k-', FLOOR(salary/5000)*5+5, 'k') as salary_band,
+            COUNT(*) as count
+        FROM employees
+        GROUP BY salary_band
+        ORDER BY MIN(salary)
+    """)
+    salary_data_rows = cursor.fetchall()
+    salary_labels = [row['salary_band'] for row in salary_data_rows]
+    salary_data = [row['count'] for row in salary_data_rows]
+
+    # Get leave type distribution
+    cursor.execute("""
+        SELECT type, COUNT(*) as count
+        FROM leave_requests
+        GROUP BY type
+    """)
+    leave_type_data = cursor.fetchall()
+    leave_type_labels = [row['type'] for row in leave_type_data]
+    leave_type_data = [row['count'] for row in leave_type_data]
+
+    # Attrition by Gender
+    cursor.execute("""
+        SELECT gender, COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY gender
+    """)
+    attrition_gender = cursor.fetchall()
+    attrition_gender_labels = [row['gender'] or 'Unknown' for row in attrition_gender]
+    attrition_gender_data = [row['count'] for row in attrition_gender]
+
+    # Attrition by Age Group
+    cursor.execute("""
+        SELECT 
+            CASE 
+                WHEN age < 25 THEN '18-24'
+                WHEN age < 35 THEN '25-34'
+                WHEN age < 45 THEN '35-44'
+                WHEN age < 55 THEN '45-54'
+                ELSE '55+'
+            END as age_group,
+            COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY age_group
+        ORDER BY MIN(age)
+    """)
+    attrition_age = cursor.fetchall()
+    attrition_age_labels = [row['age_group'] for row in attrition_age]
+    attrition_age_data = [row['count'] for row in attrition_age]
+
+    # Attrition by Department
+    cursor.execute(f"""
+        SELECT department, COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1 AND department IN ({format_strings})
+        GROUP BY department
+    """, tuple(departments))
+    attrition_dept = cursor.fetchall()
+    attrition_dept_labels = [row['department'] for row in attrition_dept]
+    attrition_dept_data = [row['count'] for row in attrition_dept]
+
+    # Attrition by Salary Band (5k bands)
+    cursor.execute("""
+        SELECT 
+            CONCAT(FLOOR(salary/5000)*5, 'k-', FLOOR(salary/5000)*5+5, 'k') as salary_band,
+            COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY salary_band
+        ORDER BY MIN(salary)
+    """)
+    attrition_salary = cursor.fetchall()
+    attrition_salary_labels = [row['salary_band'] for row in attrition_salary]
+    attrition_salary_data = [row['count'] for row in attrition_salary]
+
+    # Attrition by Overtime
+    cursor.execute("""
+        SELECT overtime, COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY overtime
+    """)
+    attrition_overtime = cursor.fetchall()
+    attrition_overtime_labels = [row['overtime'] or 'Unknown' for row in attrition_overtime]
+    attrition_overtime_data = [row['count'] for row in attrition_overtime]
+
+    # ...existing code...
     return render_template('hr/dashboard.html',
                         attrition_rate=attrition_rate,
                         total_employees=total_employees,
@@ -251,8 +429,20 @@ def dashboard():
                         department_labels=department_labels,
                         department_data=department_data,
                         age_labels=age_labels,
-                        age_data=age_data,
-                        at_risk_count=at_risk_count
+                        age_data=age_data_counts,
+                        salary_labels=salary_labels,
+                        salary_data=salary_data,
+                        at_risk_count=at_risk_count,
+                        attrition_gender_labels=attrition_gender_labels,
+                        attrition_gender_data=attrition_gender_data,
+                        attrition_age_labels=attrition_age_labels,
+                        attrition_age_data=attrition_age_data,
+                        attrition_dept_labels=attrition_dept_labels,
+                        attrition_dept_data=attrition_dept_data,
+                        attrition_salary_labels=attrition_salary_labels,
+                        attrition_salary_data=attrition_salary_data,
+                        attrition_overtime_labels=attrition_overtime_labels,
+                        attrition_overtime_data=attrition_overtime_data
                         )
 
 @app.route('/logout')
@@ -391,75 +581,6 @@ def delete_employee(employee_id):
     flash('Employee deleted successfully', 'success')
     return redirect(url_for('employees'))
 
-def get_chart_data(query_type):
-    """Fetch chart data based on the query type."""
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    
-    if query_type == 'department':
-        cursor.execute("""
-            SELECT department, COUNT(*) as count FROM employees 
-            WHERE department IN ('Research & Development', 'Human Resources', 'Sales', 'HR')
-            GROUP BY department
-        """)
-        data = cursor.fetchall()
-        labels = [item['department'] for item in data]
-        counts = [item['count'] for item in data]
-    
-    elif query_type == 'age':
-        cursor.execute("""
-            SELECT 
-                CASE 
-                    WHEN age < 25 THEN '18-24'
-                    WHEN age < 35 THEN '25-34'
-                    WHEN age < 45 THEN '35-44'
-                    WHEN age < 55 THEN '45-54'
-                    ELSE '55+'
-                END as age_group,
-                COUNT(*) as count
-            FROM employees
-            GROUP BY age_group
-            ORDER BY MIN(age)
-        """)
-        data = cursor.fetchall()
-        labels = [item['age_group'] for item in data]
-        counts = [item['count'] for item in data]
-    
-    elif query_type == 'salary':
-        cursor.execute("""
-            SELECT 
-                CONCAT(FLOOR(salary/10000)*10, 'k-', FLOOR(salary/10000)*10+10, 'k') as salary_band,
-                COUNT(*) as count
-            FROM employees
-            GROUP BY salary_band
-            ORDER BY MIN(salary)
-        """)
-        data = cursor.fetchall()
-        labels = [item['salary_band'] for item in data]
-        counts = [item['count'] for item in data]
-    
-    else:
-        labels, counts = [], []
-    
-    cursor.close()
-    connection.close()
-    return labels, counts
-
-@app.route('/department-data')
-def department_data():
-    labels, counts = get_chart_data('department')
-    return jsonify({'labels': labels, 'counts': counts})
-
-@app.route('/age-data')
-def age_data():
-    labels, counts = get_chart_data('age')
-    return jsonify({'labels': labels, 'counts': counts})
-
-@app.route('/salary-data')
-def salary_data():
-    labels, counts = get_chart_data('salary')
-    return jsonify({'labels': labels, 'counts': counts})
-
 @app.route('/leave-requests')
 def leave_requests():
     leave_requests = get_leave_requests()
@@ -468,81 +589,83 @@ def leave_requests():
                            employees=[]
                            )
 
-@app.route('/reports')
-@login_required
-@role_required('hr')
-def reports():
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+# @app.route('/reports')
+# @login_required
+# @role_required('hr')
+# def reports():
+#     connection = get_db_connection()
+#     cursor = connection.cursor(dictionary=True)
     
-    # Get department distribution
-    cursor.execute("""
-        SELECT department, COUNT(*) as count
-        FROM employees
-        WHERE department IN ('Research & Development', 'Human Resources', 'Sales', 'HR')
-        GROUP BY department
-    """)
-    dept_data = cursor.fetchall()
-    department_labels = [row['department'] for row in dept_data]
-    department_data = [row['count'] for row in dept_data]
+#     # Get department distribution dynamically
+#     departments = get_departments()
+#     format_strings = ','.join(['%s'] * len(departments))
+#     cursor.execute(f"""
+#         SELECT department, COUNT(*) as count
+#         FROM employees
+#         WHERE department IN ({format_strings})
+#         GROUP BY department
+#     """, tuple(departments))
+#     dept_data = cursor.fetchall()
+#     department_labels = [row['department'] for row in dept_data]
+#     department_data = [row['count'] for row in dept_data]
     
-    # Get leave request trends (last 6 months)
-    cursor.execute("""
-        SELECT DATE_FORMAT(start_date, '%Y-%m') as month, COUNT(*) as count
-        FROM leave_requests
-        WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-        GROUP BY DATE_FORMAT(start_date, '%Y-%m')
-        ORDER BY month
-    """)
-    leave_trends = cursor.fetchall()
-    leave_trends_labels = [row['month'] for row in leave_trends]
-    leave_trends_data = [row['count'] for row in leave_trends]
+#     # Get leave request trends (last 6 months)
+#     cursor.execute("""
+#         SELECT DATE_FORMAT(start_date, '%Y-%m') as month, COUNT(*) as count
+#         FROM leave_requests
+#         WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+#         GROUP BY DATE_FORMAT(start_date, '%Y-%m')
+#         ORDER BY month
+#     """)
+#     leave_trends = cursor.fetchall()
+#     leave_trends_labels = [row['month'] for row in leave_trends]
+#     leave_trends_data = [row['count'] for row in leave_trends]
     
-    # Get age distribution
-    cursor.execute("""
-        SELECT 
-            CASE 
-                WHEN age < 25 THEN '18-24'
-                WHEN age < 35 THEN '25-34'
-                WHEN age < 45 THEN '35-44'
-                WHEN age < 55 THEN '45-54'
-                ELSE '55+'
-            END as age_group,
-            COUNT(*) as count
-        FROM employees
-        GROUP BY age_group
-        ORDER BY MIN(age)
-    """)
-    age_data = cursor.fetchall()
-    age_labels = [row['age_group'] for row in age_data]
-    age_data = [row['count'] for row in age_data]
+#     # Get age distribution
+#     cursor.execute("""
+#         SELECT 
+#             CASE 
+#                 WHEN age < 25 THEN '18-24'
+#                 WHEN age < 35 THEN '25-34'
+#                 WHEN age < 45 THEN '35-44'
+#                 WHEN age < 55 THEN '45-54'
+#                 ELSE '55+'
+#             END as age_group,
+#             COUNT(*) as count
+#         FROM employees
+#         GROUP BY age_group
+#         ORDER BY MIN(age)
+#     """)
+#     age_data = cursor.fetchall()
+#     age_labels = [row['age_group'] for row in age_data]
+#     age_data = [row['count'] for row in age_data]
     
-    # Get leave type distribution
-    cursor.execute("""
-        SELECT type, COUNT(*) as count
-        FROM leave_requests
-        GROUP BY type
-    """)
-    leave_type_data = cursor.fetchall()
-    leave_type_labels = [row['type'] for row in leave_type_data]
-    leave_type_data = [row['count'] for row in leave_type_data]
+#     # Get leave type distribution
+#     cursor.execute("""
+#         SELECT type, COUNT(*) as count
+#         FROM leave_requests
+#         GROUP BY type
+#     """)
+#     leave_type_data = cursor.fetchall()
+#     leave_type_labels = [row['type'] for row in leave_type_data]
+#     leave_type_data = [row['count'] for row in leave_type_data]
     
-    cursor.close()
-    connection.close()
+#     cursor.close()
+#     connection.close()
     
-    return render_template('hr/reports.html',
-                         total_employees=counts['total'],
-                         active_employees=counts['active'],
-                         on_leave=counts['on_leave'],
-                         left=counts['left'],
-                         department_labels=department_labels,
-                         department_data=department_data,
-                         leave_trends_labels=leave_trends_labels,
-                         leave_trends_data=leave_trends_data,
-                         age_labels=age_labels,
-                         age_data=age_data,
-                         leave_type_labels=leave_type_labels,
-                         leave_type_data=leave_type_data)
+#     return render_template('hr/reports.html',
+#                          total_employees=counts['total'],
+#                          active_employees=counts['active'],
+#                          on_leave=counts['on_leave'],
+#                          left=counts['left'],
+#                          department_labels=department_labels,
+#                          department_data=department_data,
+#                          leave_trends_labels=leave_trends_labels,
+#                          leave_trends_data=leave_trends_data,
+#                          age_labels=age_labels,
+#                          age_data=age_data,
+#                          leave_type_labels=leave_type_labels,
+#                          leave_type_data=leave_type_data)
 
 @app.route('/employee_view')
 def employee_view():
@@ -745,80 +868,6 @@ def send_approval_email(employee_email, leave_details):
                   recipients=[employee_email])
     msg.body = f"Dear {leave_details['name']},\n\nYour leave request for {leave_details['start_date']} to {leave_details['end_date']} has been approved.\n\nBest regards,\nHR Team"
     mail.send(msg)
-
-def preprocess_employee_data(raw_data):
-    """
-    raw_data: dict or DataFrame with the same columns as in the database
-    Returns: DataFrame ready for prediction
-    """
-    # Standardize keys to match database (lowercase)
-    data = {k.lower(): v for k, v in raw_data.items()}
-    df = pd.DataFrame([data])
-
-    # Binary encoding with safe get
-    df['gender'] = df.get('gender', pd.Series([None]))
-    df['gender'] = df['gender'].map({'Male': 1, 'Female': 0})
-
-    df['overtime'] = df.get('overtime', pd.Series([None]))
-    df['overtime'] = df['overtime'].map({'Yes': 1, 'No': 0})
-
-    df['attrition'] = df.get('attrition', 0)  # If present
-
-    # One-hot encoding (must match training)
-    for col, prefix in [('department', 'Dept'), ('educationfield', 'EduField'), ('jobrole', 'JobRole')]:
-        if col in df:
-            df = df.join(pd.get_dummies(df[col], prefix=prefix)).drop(col, axis=1)
-    if 'maritalstatus' in df:
-        df = df.join(pd.get_dummies(df['maritalstatus'])).drop('maritalstatus', axis=1)
-
-    # Ensure all columns exist and are in the correct order
-    for col in model_columns:
-        if col not in df.columns:
-            df[col] = 0  # Add missing columns as zeros
-
-    df = df[model_columns]  # Reorder columns
-
-    # --- Apply the scaler loaded from encoders.pkl ---
-    scaler = encoder_data.get('scaler')
-    if scaler:
-        df = pd.DataFrame(scaler.transform(df), columns=model_columns)
-
-    return df
-
-def predict_attrition_for_employee(employee_id):
-    """Predict attrition for a single employee and update the database."""
-    emp = get_employee_by_id(employee_id)
-    if not emp:
-        return
-    X = preprocess_employee_data(emp)
-    prediction = int(model.predict(X)[0])
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    cursor.execute("""
-        UPDATE employees
-        SET attrition_risk = %s
-        WHERE employee_id = %s
-    """, (prediction, employee_id))
-    connection.commit()
-    cursor.close()
-    connection.close()
-
-def predict_attrition_for_all():
-    """Predict attrition for all employees and update the database."""
-    employees = get_all_employees()
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    for emp in employees:
-        X = preprocess_employee_data(emp)
-        prediction = int(model.predict(X)[0])
-        cursor.execute("""
-            UPDATE employees
-            SET attrition_risk = %s
-            WHERE employee_id = %s
-        """, (prediction, emp['employee_id']))
-    connection.commit()
-    cursor.close()
-    connection.close()
 
 @app.route('/predict-attrition')
 @login_required

@@ -47,15 +47,36 @@ def insertToDatabase(extracted_20_data, employee_names):
 
         # Empty the employees table before inserting new data
         cursor.execute("DELETE FROM employees")
+        # Reset AUTO_INCREMENT to 1
+        cursor.execute("ALTER TABLE employees AUTO_INCREMENT = 1")
         connection.commit()
+
+        # Insert HR as the first employee (auto-increment employee_id)
+        cursor.execute("""
+            INSERT INTO employees (
+                name, dob, age, position, department, salary,
+                total_working_years, years_at_company, date_joined,
+                marital_status, gender, edufield, env_satisfaction,
+                job_involvement, job_level, job_satisfaction, overtime,
+                work_life_balance, distance, attrition_risk
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            'Swornima Shakya', datetime(2002, 9, 21).date(), 35, 'HR Manager', 'HR', 0.0,
+            15, 10, datetime(2015, 1, 1).date(), 'Single', 'Female', 'Human Resources',
+            4, 4, 4, 4, 'No', 4, 1, 0
+        ))
+
+        # Get the HR's employee_id (should be 1 if table is empty before insert)
+        cursor.execute("SELECT employee_id FROM employees WHERE name = %s AND position = %s", ('Swornima Shakya', 'HR Manager'))
+        hr_employee_id = cursor.fetchone()[0]
 
         # Read employee CSV file
         with open(extracted_20_data, 'r') as file:
             csv_reader = csv.DictReader(file)
-            employee_id = 1  # Start employee_id from 1
+            employee_id = hr_employee_id + 1  # Start employee_id from next after HR
             for row in csv_reader:
                 # Get name from the names list, cycling through if necessary
-                name = names[(employee_id - 1) % len(names)]
+                name = names[(employee_id - hr_employee_id - 1) % len(names)]
                 
                 # Calculate fields
                 age = int(row['Age'])
@@ -63,10 +84,9 @@ def insertToDatabase(extracted_20_data, employee_names):
                 years_at_company = int(row['YearsAtCompany'])
                 date_joined = calculate_date_joined(years_at_company)
                 
-                # Insert data into the database
+                # Insert data into the database (let employee_id auto-increment)
                 cursor.execute("""
                     INSERT INTO employees (
-                        employee_id,
                         name,
                         dob,
                         age, 
@@ -88,9 +108,8 @@ def insertToDatabase(extracted_20_data, employee_names):
                         distance,
                         attrition_risk
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    employee_id,                     # employee_id (start from 1)
                     name,                            # name
                     dob,                             # dob
                     age,                             # age
@@ -122,7 +141,6 @@ def insertToDatabase(extracted_20_data, employee_names):
     cursor.close()
     connection.close()
 
-# Insert to users table
 def insertToUsersTable():
     try:
         connection = get_db_connection()
@@ -130,49 +148,32 @@ def insertToUsersTable():
 
         # Clear users table
         cursor.execute("DELETE FROM users")
+        # Reset AUTO_INCREMENT to 1
+        cursor.execute("ALTER TABLE users AUTO_INCREMENT = 1")
         connection.commit()
 
         # Fetch all employee IDs and names
-        cursor.execute("SELECT employee_id, name FROM employees")
+        cursor.execute("SELECT employee_id, name, position FROM employees ORDER BY employee_id ASC")
         employees = cursor.fetchall()
 
         # Insert a user for each employee
-        for emp_id, name in employees:
-            email = f"{name.lower().replace(' ', '')}@company.com"
-            raw_password = "default123"
+        for emp_id, name, position in employees:
+            if position == 'HR Manager' and name == 'Swornima Shakya':
+                email = "hr@company.com"
+                raw_password = "hr12345"
+                role = "hr"
+            else:
+                email = f"{name.lower().replace(' ', '')}@company.com"
+                raw_password = "pass123"
+                role = "employee"
             hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            role = 'employee'
             cursor.execute("""
                 INSERT INTO users (employee_id, email, password, role)
                 VALUES (%s, %s, %s, %s)
             """, (emp_id, email, hashed_password, role))
 
-        # Add admin info to employees table if not exists
-        cursor.execute("SELECT COUNT(*) FROM employees WHERE employee_id = %s", (0,))
-        if cursor.fetchone()[0] == 0:
-            cursor.execute("""
-                INSERT INTO employees (
-                    employee_id, name, dob, age, position, department, salary,
-                    total_working_years, years_at_company, date_joined,
-                    marital_status, gender, edufield, env_satisfaction,
-                    job_involvement, job_level, job_satisfaction, overtime,
-                    work_life_balance, distance, attrition_risk
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                9999, 'Swornima Shakya', datetime(1990, 1, 1).date(), 35, 'HR Manager', 'HR', 0.0,
-                15, 10, datetime(2015, 1, 1).date(), 'Single', 'Female', 'Human Resources',
-                4, 4, 5, 4, 'No', 4, 1, 0  # <-- changed job_satisfaction from 5 to 4
-            ))
-
-        # Add admin user manually (if needed)
-        hr_password = bcrypt.hashpw("hr12345".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        cursor.execute("""
-            INSERT INTO users (employee_id, email, password, role)
-            VALUES (%s, %s, %s, %s)
-        """, (9999, 'hr@company.com', hr_password, 'hr'))
-
         connection.commit()
-        print("Users and admin inserted and mapped to employees successfully with bcrypt passwords!")
+        print("Users and HR inserted and mapped to employees successfully with bcrypt passwords!")
     except Error as e:
         print(f"Error: {e}")
     finally:
@@ -180,7 +181,8 @@ def insertToUsersTable():
         connection.close()
 
 # Example usage:
-insertToDatabase('notebooks\extracted-20.csv', 'emp-data\employee_names.csv')
+insertToDatabase(r'D:\BIM\Summer Project\project\notebooks\extracted-20.csv',
+                 r'D:\BIM\Summer Project\project\emp-data\employee_names.csv')
 
 # Example usage for inserting users
 insertToUsersTable()

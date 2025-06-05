@@ -35,19 +35,35 @@
 
     <!-- Charts and Leave Requests Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Department Distribution -->
+        <!-- Department Distribution with Filter -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Department Distribution</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Distribution Chart</h3>
+                <select id="chartFilter" class="border border-gray-300 rounded px-2 py-1 text-xs">
+                    <option value="department">Department</option>
+                    <option value="age">Age</option>
+                    <option value="salary">Salary</option>
+                </select>
+            </div>
             <div class="relative h-80">
                 <canvas id="deptChart" width="400" height="320"></canvas>
             </div>
         </div>
 
-        <!-- Age Distribution -->
+        <!-- Attrition Breakdown Chart -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Age Distribution</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Attrition Breakdown</h3>
+                <select id="attritionChartFilter" class="border border-gray-300 rounded px-2 py-1 text-xs">
+                    <option value="gender">Gender</option>
+                    <option value="age">Age</option>
+                    <option value="department">Department</option>
+                    <option value="salary">Salary</option>
+                    <option value="overtime">Overtime</option>
+                </select>
+            </div>
             <div class="relative h-80">
-                <canvas id="ageChart" width="400" height="320"></canvas>
+                <canvas id="attritionChart" width="400" height="320"></canvas>
             </div>
         </div>
 
@@ -199,99 +215,29 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Load Chart.js first -->
+<!-- Load Chart.js and your dynamic chart code -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const colors = {
-        blue: '#4285F4',
-        red: '#EA4335',
-        yellow: '#FBBC05',
-        green: '#34A853'
+    // Pass chart data to JS as JSON
+    window.dashboardChartData = {
+        department_labels: {{ department_labels|tojson }},
+        department_data: {{ department_data|tojson }},
+        age_labels: {{ age_labels|tojson }},
+        age_data: {{ age_data|tojson }},
+        salary_labels: {{ salary_labels|tojson }},
+        salary_data: {{ salary_data|tojson }},
+        // Attrition breakdown data
+        attrition_gender_labels: {{ attrition_gender_labels|tojson }},
+        attrition_gender_data: {{ attrition_gender_data|tojson }},
+        attrition_age_labels: {{ attrition_age_labels|tojson }},
+        attrition_age_data: {{ attrition_age_data|tojson }},
+        attrition_dept_labels: {{ attrition_dept_labels|tojson }},
+        attrition_dept_data: {{ attrition_dept_data|tojson }},
+        attrition_salary_labels: {{ attrition_salary_labels|tojson }},
+        attrition_salary_data: {{ attrition_salary_data|tojson }},
+        attrition_overtime_labels: {{ attrition_overtime_labels|tojson }},
+        attrition_overtime_data: {{ attrition_overtime_data|tojson }}
     };
-
-    // Department Distribution Chart (Dummy Data)
-    const deptCanvas = document.getElementById('deptChart');
-    if (deptCanvas) {
-        const deptCtx = deptCanvas.getContext('2d');
-        new Chart(deptCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['HR', 'IT', 'Sales', 'Finance'],
-                datasets: [{
-                    data: [10, 15, 7, 5],
-                    backgroundColor: [
-                        colors.blue,
-                        colors.red,
-                        colors.yellow,
-                        colors.green
-                    ],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            padding: 20,
-                            font: {
-                                size: 12
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // Age Distribution Chart (Dummy Data)
-    const ageCanvas = document.getElementById('ageChart');
-    if (ageCanvas) {
-        const ageCtx = ageCanvas.getContext('2d');
-        new Chart(ageCtx, {
-            type: 'bar',
-            data: {
-                labels: ['18-24', '25-34', '35-44', '45-54', '55+'],
-                datasets: [{
-                    label: 'Age Distribution',
-                    data: [5, 12, 9, 6, 3],
-                    backgroundColor: [
-                        colors.blue,
-                        colors.red,
-                        colors.yellow,
-                        colors.green,
-                        '#888'
-                    ],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: '#e0e0e0'
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
 </script>
+<script src="{{ url_for('static', filename='chart.js') }}"></script>
 {% endblock %}
