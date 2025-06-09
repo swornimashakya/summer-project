@@ -5,69 +5,93 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Company | Login</title>
-
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet" />
-  <link href="https://fonts.Companyapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    @keyframes gradientBG {
+      0% {
+        background-position: 0% 50%;
+      }
 
-<body class="body-bg min-h-screen pt-12 md:pt-20 pb-6 px-2 md:px-0">
-  <header class="max-w-lg mx-auto mb-4">
-    <a href="#">
-      <h1 class="text-4xl font-bold text-white text-center">Company</h1>
-    </a>
-  </header>
+      50% {
+        background-position: 100% 50%;
+      }
 
-  <main class="bg-white max-w-lg mx-auto my-6 p-6 md:p-10 rounded-lg shadow-2xl">
-    <section>
-      <h3 class="font-bold text-2xl">Welcome to Company</h3>
-      <p class="text-gray-600 pt-2">Log in to your account.</p>
-    </section>
+      100% {
+        background-position: 0% 50%;
+      }
+    }
 
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div
-      class="p-4 rounded-lg {% if category == 'error' %}bg-red-100 text-red-700
-      {% else %}bg-green-100 text-green-700{% endif %}">
-      {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
+    .animated-gradient {
+      background: linear-gradient(120deg, #e0e7ff, #f0fdfa, #fef9c3, #ffe4e6);
+      background-size: 200% 200%;
+      animation: gradientBG 16s ease-in-out infinite;
+    }
+  </style>
+</head>
 
-    <section class="mt-10">
-      <form class="flex flex-col" method="POST" action="{{ url_for('login') }}">
-        <div class="mb-6 pt-3 rounded bg-gray-200">
-          <label class="block text-gray-700 text-sm font-bold mb-2 ml-3" for="email">Email</label>
-          <input type="text" id="email" name="email"
-            class="bg-gray-200 rounded w-full text-gray-700 focus:outline-none border-b-4 border-gray-300 focus:border-purple-600 transition duration-500 px-3 pb-3" />
+<body class="bg-gray-50 animated-gradient min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-md px-4">
+    <main class="rounded-lg p-10 border border-gray-300 flex flex-col items-center shadow-lg"
+      style="background-color:rgba(255,255,255,0.8)">
+      <h1 class="text-3xl font-bold text-gray-800 mb-4 tracking-tight text-center">Company Inc.</h1>
+      <p class="text-gray-600 mb-4 text-center">Log in to your account</p>
+
+      <!-- Flash Messages (moved inside main, before form) -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="w-full mb-8">
+        {% for category, message in messages %}
+        <div
+          class="p-3 rounded-md text-center text-sm
+          {% if category == 'error' %}bg-red-50 text-[#d93025]
+          {% elif category == 'warning' %}bg-yellow-50 text-yellow-700
+          {% elif category == 'success' %}bg-green-50 text-[#1e8e3e]
+          {% else %}bg-blue-50 text-blue-700{% endif %}">
+          {{ message }}
         </div>
-        <div class="mb-3 pt-3 rounded bg-gray-200">
-          <label class="block text-gray-700 text-sm font-bold mb-2 ml-3" for="password">Password</label>
-          <input type="password" id="password" name="password"
-            class="bg-gray-200 rounded w-full text-gray-700 focus:outline-none border-b-4 border-gray-300 focus:border-purple-600 transition duration-500 px-3 pb-3" />
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      <form class="w-full" method="POST" action="{{ url_for('login') }}">
+        <div class="mb-4">
+          <div class="relative">
+            <input type="text" id="email" name="email" required autocomplete="username"
+              class="block w-full px-3.5 py-4 border border-gray-400 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-[#4285F4] focus:border-[#4285F4] text-gray-900 placeholder-transparent peer transition-colors"
+              placeholder="" />
+            <label for="email"
+              class="absolute left-3 -top-2.5 text-gray-500 text-xs pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-[#4285F4] bg-white px-1">
+              Email
+            </label>
+          </div>
         </div>
-        <div class="flex items-center justify-end mb-6">
-          <input type="checkbox" id="showPassword" class="mr-2">
-          <label for="showPassword" class="text-sm text-gray-700">Show Password</label>
+        <div class="mb-4">
+          <div class="relative">
+            <input type="password" id="password" name="password" required autocomplete="current-password"
+              class="block w-full px-3.5 py-4 border border-gray-400 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-[#4285F4] focus:border-[#4285F4] text-gray-900 placeholder-transparent peer transition-colors"
+              placeholder="" />
+            <label for="password"
+              class="absolute left-3 -top-2.5 text-gray-500 text-xs pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-[#4285F4] bg-white px-1">
+              Password
+            </label>
+          </div>
         </div>
-        <!-- <div class="flex justify-end">
-            <a
-              href="#"
-              class="text-sm text-blue-500 hover:text-blue-700 hover:underline mb-6"
-              >Forgot your password?</a
-            >
-          </div> -->
+        <div class="flex items-center justify-between mb-8">
+          <div class="flex items-center">
+            <input type="checkbox" id="showPassword" class="mr-2 h-4 w-4 accent-[#4285F4] transition-all duration-200">
+            <label for="showPassword" class="text-sm text-gray-700 select-none">Show Password</label>
+          </div>
+        </div>
         <button
-          class="bg-blue-600 hover:bg-purple-700 text-white font-bold py-2 rounded shadow-lg hover:shadow-xl transition duration-200"
+          class="w-full bg-[#4285F4] hover:bg-[#356ac3] text-black font-semibold py-3 rounded-md shadow-sm border border-gray-400 hover:shadow transition-all duration-200 text-base"
           type="submit">
           Log In
         </button>
       </form>
-    </section>
-  </main>
-
+    </main>
+  </div>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 

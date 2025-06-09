@@ -121,40 +121,80 @@ def get_employee_by_id(employee_id):
 
 def preprocess_employee_data(raw_data):
     """
-    raw_data: dict or DataFrame with the same columns as in the database
-    Returns: DataFrame ready for prediction
+    Preprocess raw employee data from the database to match model input format.
+    Applies encoding and scaling using the saved encoder_data.
+
+    Parameters:
+        raw_data (dict): A single employee's data as a dictionary.
+
+    Returns:
+        pd.DataFrame: Preprocessed input ready for prediction.
     """
-    # Standardize keys to match database (lowercase)
-    data = {k.lower(): v for k, v in raw_data.items()}
+    # Load expected model structure
+    expected_columns = encoder_data['columns']
+    scaler = encoder_data.get('scaler')
+
+    # Rename DB fields to match model training columns
+    rename_map = {
+        'age': 'Age',
+        'distance': 'DistanceFromHome',
+        'env_satisfaction': 'EnvironmentSatisfaction',
+        'gender': 'Gender',
+        'job_involvement': 'JobInvolvement',
+        'job_level': 'JobLevel',
+        'job_satisfaction': 'JobSatisfaction',
+        'salary': 'MonthlyIncome',
+        'overtime': 'OverTime',
+        'total_working_years': 'TotalWorkingYears',
+        'work_life_balance': 'WorkLifeBalance',
+        'years_at_company': 'YearsAtCompany',
+        'department': 'Dept',
+        'edufield': 'EduField',
+        'position': 'JobRole',
+        'marital_status': 'MaritalStatus'
+    }
+
+    # Step 1: Normalize input and rename fields
+    data = {rename_map.get(k.lower(), k): v for k, v in raw_data.items()}
     df = pd.DataFrame([data])
 
-    # Binary encoding with safe get
-    df['gender'] = df.get('gender', pd.Series([None]))
-    df['gender'] = df['gender'].map({'Male': 1, 'Female': 0})
-
-    df['overtime'] = df.get('overtime', pd.Series([None]))
-    df['overtime'] = df['overtime'].map({'Yes': 1, 'No': 0})
-
-    df['attrition'] = df.get('attrition', 0)  # If present
-
-    # One-hot encoding (must match training)
-    for col, prefix in [('department', 'Dept'), ('educationfield', 'EduField'), ('jobrole', 'JobRole')]:
+    # Step 2: Binary encoding
+    binary_map = {
+        'Gender': {'Male': 1, 'Female': 0},
+        'OverTime': {'Yes': 1, 'No': 0}
+    }
+    for col, mapping in binary_map.items():
         if col in df:
-            df = df.join(pd.get_dummies(df[col], prefix=prefix)).drop(col, axis=1)
-    if 'maritalstatus' in df:
-        df = df.join(pd.get_dummies(df['maritalstatus'])).drop('maritalstatus', axis=1)
+            df[col] = df[col].map(mapping).fillna(0)
+        else:
+            df[col] = 0
 
-    # Ensure all columns exist and are in the correct order
-    for col in model_columns:
+    # Step 3: Handle categorical columns (OHE)
+    ohe_map = ['Dept', 'EduField', 'JobRole', 'MaritalStatus']
+    defaults = {
+        'Dept': 'Sales',
+        'EduField': 'Medical',
+        'JobRole': 'Sales Executive',
+        'MaritalStatus': 'Single'
+    }
+    for col in ohe_map:
         if col not in df.columns:
-            df[col] = 0  # Add missing columns as zeros
+            df[col] = defaults[col]
 
-    df = df[model_columns]  # Reorder columns
+    df = pd.get_dummies(df, columns=ohe_map)
 
-    # --- Apply the scaler loaded from encoders.pkl ---
-    scaler = encoder_data.get('scaler')
+    # Step 4: Ensure all expected model columns are present
+    for col in expected_columns:
+        if col not in df.columns:
+            df[col] = 0
+
+    # Step 5: Order columns correctly
+    df = df[expected_columns]
+
+    # Step 6: Apply scaler if available
     if scaler:
-        df = pd.DataFrame(scaler.transform(df), columns=model_columns)
+        df_scaled = scaler.transform(df)
+        df = pd.DataFrame(df_scaled, columns=expected_columns)
 
     return df
 
@@ -230,6 +270,11 @@ def login():
         # Fetch employee details
         cursor.execute("SELECT name, position FROM employees WHERE employee_id = %s", (user['employee_id'],))
         employee = cursor.fetchone()
+        if not employee:
+            flash('Employee record not found for this user.', 'error')
+            cursor.close()
+            connection.close()
+            return redirect(url_for('login'))
         session['name'] = employee['name']
         session['position'] = employee['position']
         
@@ -486,6 +531,8 @@ def add_employee():
         cursor.execute("SELECT MAX(employee_id) FROM employees")
         last_id = cursor.fetchone()[0] or 0
         employee_id = last_id + 1
+
+        # Insert default values for other fields
 
         cursor.execute(
             "INSERT INTO employees (employee_id, name, position, department, salary, years_at_company) "
@@ -869,7 +916,7 @@ def send_approval_email(employee_email, leave_details):
     msg.body = f"Dear {leave_details['name']},\n\nYour leave request for {leave_details['start_date']} to {leave_details['end_date']} has been approved.\n\nBest regards,\nHR Team"
     mail.send(msg)
 
-@app.route('/predict-attrition')
+@app.route('/predict-attrition', methods=['GET', 'POST'])
 @login_required
 @role_required('hr')
 def predict_attrition():
@@ -907,17 +954,6 @@ def delete_leave_request(leave_id):
     connection.close()
     flash('Leave request deleted successfully.', 'success')
     return redirect(url_for('emp_leave'))
-
-@role_required('hr')
-def flash_attrition_status(employee_id):
-    """Fetch attrition_risk for employee and flash a message."""
-    emp = get_employee_by_id(employee_id)
-    if emp is not None:
-        risk = emp.get('attrition_risk', 0)
-        if risk == 1:
-            flash('Warning: This employee is at risk of attrition.', 'warning')
-        else:
-            flash('This employee is not currently at risk of attrition.', 'info')
 
 def get_anniversaries_this_month(employees):
     """Return a list of employees whose work anniversaries are in the current month, with labels for today/tomorrow."""

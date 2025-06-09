@@ -132,7 +132,12 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- At-Risk Employees -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">At-Risk Employees</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">At-Risk Employees</h3>
+                <span class="bg-[#34A853] text-white text-xs font-medium px-3 py-1 rounded-full">
+                    {{ employees|selectattr('attrition_risk', 'equalto', 1)|list|length }} At Risk
+                </span>
+            </div>
             <div class="space-y-4">
                 {% for employee in employees %}
                     {% if employee.attrition_risk == 1 %}
@@ -155,10 +160,15 @@
 
         <!-- Anniversaries -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Anniversaries</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Anniversaries</h3>
+                <span class="bg-[#FBBC05] text-white text-xs font-medium px-3 py-1 rounded-full">
+                    {{ anniversaries|length if anniversaries else 0 }} This Month
+                </span>
+            </div>
             <div class="space-y-4">
                 {% if anniversaries and anniversaries|length > 0 %}
-                    {% for employee in anniversaries %}
+                    {% for employee in anniversaries|sort(attribute='anniversary_date') %}
                     <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded-full bg-[#FBBC05] flex items-center justify-center text-white text-sm font-semibold">
@@ -184,10 +194,15 @@
 
         <!-- Birthdays -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Birthdays</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Birthdays</h3>
+                <span class="bg-[#EA4335] text-white text-xs font-medium px-3 py-1 rounded-full">
+                    {{ birthdays|length if birthdays else 0 }} This Month
+                </span>
+            </div>
             <div class="space-y-4">
                 {% if birthdays and birthdays|length > 0 %}
-                    {% for employee in birthdays %}
+                    {% for employee in birthdays|sort(attribute='birthday_date') %}
                     <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded-full bg-[#EA4335] flex items-center justify-center text-white text-sm font-semibold">
