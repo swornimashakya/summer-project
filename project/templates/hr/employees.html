@@ -8,22 +8,12 @@
 
 {% block content %}
 <div class="flex justify-between items-center mb-4">
-    <!-- Filter Dropdown -->
-    <!-- <div>
-        <label for="department-filter" class="mr-2 font-semibold">Filter by Department:</label>
-        <select id="department-filter" class="px-2 py-1 rounded border">
-            <option value="All">Sales</option>
-            <option value="IT">R&D</option>
-            <option value="Product">HR</option>
-            <option value="Analytics">IT</option>
-        </select>
-    </div> -->
-
-    <!-- Add Employee Button -->
+    <!-- Add Employee Button (hidden for now) -->
+    <!--
     <a href="{{ url_for('add_employee') }}" class="bg-[#4285F4] text-white px-4 py-2 rounded hover:bg-blue-700">
         Add Employee
     </a>
-
+    -->
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -35,6 +25,13 @@
     {% endfor %}
     {% endif %}
     {% endwith %}
+</div>
+
+<!-- Employee Stats -->
+<div class="mb-4">
+    <span class="inline-block bg-blue-50 text-blue-800 px-4 py-2 rounded shadow text-lg font-medium">
+        Total Employees: <span class="font-bold">{{ employees|length }}</span>
+    </span>
 </div>
 
 <!-- Employee Table -->
@@ -69,7 +66,6 @@
         {% endfor %}
     </tbody>
 </table>
-
 
 {% endblock %}
 

@@ -97,6 +97,26 @@
           </li>
           <li class="px-6 py-4">
             <a
+              href="{{ url_for('applicant_tracker') }}"
+              class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+            >
+              <svg
+                class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4m0 0v4m0-4h4m-4 0H8m1.414 7.414A2 2 0 0112 18h0a2 2 0 01-1.414-.586l-3.172-3.172a2 2 0 010-2.828l3.172-3.172A2 2 0 0112 8h0a2 2 0 011.414.586l3.172 3.172a2 2 0 010 2.828l-3.172 3.172z"
+                />
+              </svg>
+              <span class="relative">Applicant Tracker</span>
+            </a>
+          <li class="px-6 py-4">
+            <a
               { }
               href="{{ url_for('predict_attrition', employee_id=employees.employee_id) }}"
 

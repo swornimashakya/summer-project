@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Welcome | Company</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+      @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .animated-gradient {
+        background: linear-gradient(120deg, #e0e7ff, #f0fdfa, #fef9c3, #ffe4e6);
+        background-size: 200% 200%;
+        animation: gradientBG 16s ease-in-out infinite;
+      }
+    </style>
+</head>
+<body class="bg-gray-50 animated-gradient min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md px-4">
+        <main class="rounded-lg p-10 border border-gray-300 flex flex-col items-center shadow-lg" style="background-color:rgba(255,255,255,0.8)">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center tracking-tight">Company Inc.</h1>
+            <p class="mb-8 text-gray-600 text-center">Please select your role:</p>
+            <div class="flex flex-col gap-4 w-full">
+                <a href="{{ url_for('login') }}"
+                   class="w-full bg-green-400 hover:bg-green-500 text-black font-semibold py-3 rounded-md text-center shadow-sm border border-gray-400 hover:shadow transition-all duration-200 text-base">
+                    Employee Login
+                </a>
+                <a href="{{ url_for('job_apply') }}"
+                   class="w-full bg-[#4285F4] hover:bg-gray-200 text-black font-semibold py-3 rounded-md text-center shadow-sm border border-gray-400 hover:shadow transition-all duration-200 text-base">
+                    Job Application
+                </a>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

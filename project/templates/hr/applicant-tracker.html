@@ -1,0 +1,198 @@
+{% extends "hr/base.html" %}
+
+{% block title %}Applicant Tracker{% endblock %}
+
+{% block page_title %}
+<h1 class="text-xl font-bold">Applicant Tracker</h1>
+{% endblock %}
+
+{% block content %}
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+        <div class="px-4 py-2 rounded mb-2
+            {% if category == 'success' %}bg-green-100 text-green-800
+            {% elif category == 'error' %}bg-red-100 text-red-800
+            {% elif category == 'warning' %}bg-yellow-100 text-yellow-800
+            {% else %}bg-gray-100 text-gray-800{% endif %}">
+          {{ message|safe }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+<!-- End flash messages -->
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+    {% for applicant in applicants %}
+    <div class="bg-white rounded-xl shadow p-6 flex flex-col justify-between border border-gray-100 hover:shadow-lg transition">
+        <div>
+            <div class="flex items-center mb-2 justify-between">
+                <div>
+                    <span class="text-lg font-semibold text-gray-800" data-name-{{ applicant.reg_id }}>{{ applicant.name }}</span>
+                    <span class="ml-2 px-2 py-1 rounded text-xs font-semibold 
+                        {% if applicant.status == 'Rejected' %}bg-gray-300 text-gray-600
+                        {% elif applicant.status == 'Hired' %}bg-green-100 text-green-800
+                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                        {% if applicant.status == 'Hired' %}
+                            Hired
+                        {% elif applicant.status == 'Rejected' %}
+                            Rejected
+                        {% else %}
+                            Pending
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex gap-2">
+                    <!-- Edit Status Icon -->
+                    <button type="button" title="Edit Status" class="p-1 hover:bg-blue-100 rounded"
+                        onclick="revertActionRow({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V17h4"/>
+                        </svg>
+                    </button>
+                    <!-- Delete Icon -->
+                    <button type="button" title="Delete" class="p-1 hover:bg-red-100 rounded"
+                        onclick="openDeleteModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Email:</span> {{ applicant.email }}</div>
+            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Position:</span> {{ applicant.position }}</div>
+            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Department:</span> {{ applicant.department }}</div>
+        </div>
+        <div class="mt-4 flex gap-2" id="action-row-{{ applicant.reg_id }}">
+            {% if not applicant.status %}
+            <!-- Hire Button triggers modal -->
+            <button class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
+                onclick="openHireModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">Hire</button>
+            <form method="post" action="{{ url_for('applicant_action') }}" class="flex-1">
+                <input type="hidden" name="reg_id" value="{{ applicant.reg_id }}">
+                <input type="hidden" name="action" value="reject">
+                <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Reject</button>
+            </form>
+            {% elif applicant.status == 'Hired' or applicant.status == 'Rejected' %}
+            <!-- No actions by default, but will be restored by JS if edit is clicked -->
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="col-span-3 text-center text-gray-500 py-8">
+        No applicants found.
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Hire Modal -->
+<div id="hireModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <form method="post" action="{{ url_for('applicant_action') }}" class="bg-white rounded-lg p-6 w-80">
+        <input type="hidden" name="reg_id" id="hireRegId">
+        <input type="hidden" name="action" value="hire">
+        <h2 class="text-lg font-bold mb-4">Hire <span id="hireName"></span></h2>
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">Salary</label>
+            <input type="number" name="salary" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">Date Joined</label>
+            <input type="date" name="date_joined" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button type="submit" class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Confirm</button>
+            <button type="button" onclick="closeHireModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<!-- Edit Applicant Modal -->
+<div id="editModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <form method="post" id="editApplicantForm" class="bg-white rounded-lg p-6 w-96">
+        <input type="hidden" name="reg_id" id="editRegId">
+        <h2 class="text-lg font-bold mb-4">Edit Applicant: <span id="editName"></span></h2>
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">Name</label>
+            <input type="text" name="name" id="editNameInput" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">Email</label>
+            <input type="email" name="email" id="editEmailInput" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">Position</label>
+            <input type="text" name="position" id="editPositionInput" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">Department</label>
+            <input type="text" name="department" id="editDepartmentInput" required class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Save</button>
+            <button type="button" onclick="closeEditModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<!-- Delete Applicant Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <form method="post" id="deleteApplicantForm" class="bg-white rounded-lg p-6 w-80">
+        <input type="hidden" name="reg_id" id="deleteRegId">
+        <h2 class="text-lg font-bold mb-4">Delete Applicant</h2>
+        <p class="mb-4">Are you sure you want to delete <span id="deleteName"></span>?</p>
+        <div class="flex gap-2 mt-4">
+            <button type="submit" class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">Delete</button>
+            <button type="button" onclick="closeDeleteModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">Cancel</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openHireModal(regId, name) {
+    document.getElementById('hireRegId').value = regId;
+    document.getElementById('hireName').textContent = name;
+    document.getElementById('hireModal').classList.remove('hidden');
+}
+function closeHireModal() {
+    document.getElementById('hireModal').classList.add('hidden');
+}
+
+// Restore the action row to show Hire/Reject for this card and remove gray background
+function revertActionRow(regId, name) {
+    var row = document.getElementById('action-row-' + regId);
+    if (!row) return;
+    // Restore action row with Hire/Reject buttons
+    row.innerHTML = `
+        <button class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
+            onclick="openHireModal(${regId}, '${name}')">Hire</button>
+        <form method="post" action="{{ url_for('applicant_action') }}" class="flex-1" style="margin:0;">
+            <input type="hidden" name="reg_id" value="${regId}">
+            <input type="hidden" name="action" value="reject">
+            <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Reject</button>
+        </form>
+    `;
+    // Remove gray background and opacity from card
+    var card = row.closest('.bg-white');
+    if (card) {
+        card.classList.remove('opacity-60', 'bg-gray-200');
+    }
+}
+
+// Delete Modal logic (unchanged)
+function openDeleteModal(regId, name) {
+    document.getElementById('deleteRegId').value = regId;
+    document.getElementById('deleteName').textContent = name;
+    document.getElementById('deleteModal').classList.remove('hidden');
+    document.getElementById('deleteApplicantForm').action = '/delete_applicant/' + regId;
+}
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

@@ -9,6 +9,7 @@ import config  # Import the config module
 import pickle
 import pandas as pd
 from calendar import monthrange
+from markupsafe import Markup
 
 app = Flask(__name__)
 
@@ -233,7 +234,11 @@ def predict_attrition_for_all():
     cursor.close()
     connection.close()
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = request.form['email']
@@ -306,6 +311,44 @@ def get_departments():
     cursor.close()
     connection.close()
     return departments
+
+@app.route('/job_apply', methods=['GET', 'POST'])
+def job_apply():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        dob = request.form['dob']
+        position = request.form['position']
+        department = request.form['department']
+        edufield = request.form['education_field']
+        total_working_years = request.form['total_working_years']
+        overtime = request.form['overtime']
+        distance = request.form['distance_from_home']
+        marital_status = request.form['marital_status']
+        gender = request.form['gender']
+        # job_level = request.form['job_level']  # Removed
+
+        # Connect to your database
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            sql = """
+            INSERT INTO applicants
+            (name, email, dob, position, department, edufield, total_working_years, overtime, distance, marital_status, gender)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                name, email, dob, position, department, edufield,
+                int(total_working_years), overtime, int(distance),
+                marital_status, gender
+            ))
+            conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
+        flash('Application submitted successfully!', 'success')
+        return redirect(url_for('job_apply'))
+    return render_template('job_apply.html')
 
 @app.route('/dashboard')
 @login_required
@@ -602,7 +645,7 @@ def edit_employee(employee_id):
 
         # Predict attrition for the updated employee
         predict_attrition_for_employee(employee_id)
-        flash_attrition_status(employee_id)
+        # flash_attrition_status(employee_id)
         flash('Employee updated successfully', 'success')
         return redirect(url_for('employees'))
     
@@ -636,83 +679,135 @@ def leave_requests():
                            employees=[]
                            )
 
-# @app.route('/reports')
-# @login_required
-# @role_required('hr')
-# def reports():
-#     connection = get_db_connection()
-#     cursor = connection.cursor(dictionary=True)
-    
-#     # Get department distribution dynamically
-#     departments = get_departments()
-#     format_strings = ','.join(['%s'] * len(departments))
-#     cursor.execute(f"""
-#         SELECT department, COUNT(*) as count
-#         FROM employees
-#         WHERE department IN ({format_strings})
-#         GROUP BY department
-#     """, tuple(departments))
-#     dept_data = cursor.fetchall()
-#     department_labels = [row['department'] for row in dept_data]
-#     department_data = [row['count'] for row in dept_data]
-    
-#     # Get leave request trends (last 6 months)
-#     cursor.execute("""
-#         SELECT DATE_FORMAT(start_date, '%Y-%m') as month, COUNT(*) as count
-#         FROM leave_requests
-#         WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-#         GROUP BY DATE_FORMAT(start_date, '%Y-%m')
-#         ORDER BY month
-#     """)
-#     leave_trends = cursor.fetchall()
-#     leave_trends_labels = [row['month'] for row in leave_trends]
-#     leave_trends_data = [row['count'] for row in leave_trends]
-    
-#     # Get age distribution
-#     cursor.execute("""
-#         SELECT 
-#             CASE 
-#                 WHEN age < 25 THEN '18-24'
-#                 WHEN age < 35 THEN '25-34'
-#                 WHEN age < 45 THEN '35-44'
-#                 WHEN age < 55 THEN '45-54'
-#                 ELSE '55+'
-#             END as age_group,
-#             COUNT(*) as count
-#         FROM employees
-#         GROUP BY age_group
-#         ORDER BY MIN(age)
-#     """)
-#     age_data = cursor.fetchall()
-#     age_labels = [row['age_group'] for row in age_data]
-#     age_data = [row['count'] for row in age_data]
-    
-#     # Get leave type distribution
-#     cursor.execute("""
-#         SELECT type, COUNT(*) as count
-#         FROM leave_requests
-#         GROUP BY type
-#     """)
-#     leave_type_data = cursor.fetchall()
-#     leave_type_labels = [row['type'] for row in leave_type_data]
-#     leave_type_data = [row['count'] for row in leave_type_data]
-    
-#     cursor.close()
-#     connection.close()
-    
-#     return render_template('hr/reports.html',
-#                          total_employees=counts['total'],
-#                          active_employees=counts['active'],
-#                          on_leave=counts['on_leave'],
-#                          left=counts['left'],
-#                          department_labels=department_labels,
-#                          department_data=department_data,
-#                          leave_trends_labels=leave_trends_labels,
-#                          leave_trends_data=leave_trends_data,
-#                          age_labels=age_labels,
-#                          age_data=age_data,
-#                          leave_type_labels=leave_type_labels,
-#                          leave_type_data=leave_type_data)
+def send_hire_email(applicant_email, applicant_name, company_email, password):
+    msg = Message(
+        subject='Congratulations! You have been hired',
+        recipients=[applicant_email]
+    )
+    msg.body = (
+        f"Dear {applicant_name},\n\n"
+        "Congratulations! You have been hired. You can now access your employee portal with the following credentials:\n\n"
+        f"Login Email: {company_email}\n"
+        f"Password: {password}\n\n"
+        "Please log in and update your profile as soon as possible.\n\n"
+        "Best regards,\nHR Team"
+    )
+    mail.send(msg)
+
+@app.route('/applicant_action', methods=['POST'])
+@login_required
+@role_required('hr')
+def applicant_action():
+    reg_id = request.form.get('reg_id')
+    action = request.form.get('action')
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    # Fetch applicant info
+    cursor.execute("SELECT * FROM applicants WHERE reg_id = %s", (reg_id,))
+    applicant = cursor.fetchone()
+    if not applicant:
+        flash('Applicant not found.', 'error')
+        cursor.close()
+        connection.close()
+        return redirect(url_for('applicant_tracker'))
+
+    if action == 'hire':
+        salary = request.form.get('salary')
+        date_joined = request.form.get('date_joined')
+        # Calculate age using calculate_age()
+        dob = applicant.get('dob')
+        age = calculate_age(dob)
+        # Calculate years at company from date_joined
+        date_joined_obj = datetime.strptime(date_joined, '%Y-%m-%d')
+        today = datetime.today()
+        years_at_company = today.year - date_joined_obj.year - ((today.month, today.day) < (date_joined_obj.month, date_joined_obj.day))
+
+        # Insert into employees with age, years_at_company, salary
+        # Set default value 4 for env_satisfaction, job_involvement, job_satisfaction, work_life_balance
+        cursor.execute("SELECT MAX(employee_id) FROM employees")
+        last_id = cursor.fetchone()['MAX(employee_id)'] or 0
+        employee_id = last_id + 1
+        cursor.execute(
+            "INSERT INTO employees (employee_id, name, position, department, salary, date_joined, edufield, total_working_years, overtime, distance, marital_status, gender, dob, age, years_at_company, env_satisfaction, job_involvement, job_satisfaction, work_life_balance) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                employee_id,
+                applicant['name'],
+                applicant['position'],
+                applicant['department'],
+                salary,
+                date_joined,
+                applicant.get('edufield', ''),
+                applicant.get('total_working_years', 0),
+                applicant.get('overtime', 'No'),
+                applicant.get('distance', 0),
+                applicant.get('marital_status', ''),
+                applicant.get('gender', ''),
+                applicant.get('dob', None),
+                age,
+                years_at_company,
+                4,  # env_satisfaction
+                4,  # job_involvement
+                4,  # job_satisfaction
+                4   # work_life_balance
+            )
+        )
+        # Create user account
+        name = applicant['name']
+        base_email = f"{name.lower().replace(' ', '')}@company.com"
+        email = base_email
+        suffix = 1
+        cursor.execute("SELECT COUNT(*) FROM users WHERE email = %s", (email,))
+        while cursor.fetchone()['COUNT(*)'] > 0:
+            email = f"{name.lower().replace(' ', '')}{suffix}@company.com"
+            cursor.execute("SELECT COUNT(*) FROM users WHERE email = %s", (email,))
+            suffix += 1
+        raw_password = "default123"
+        hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        role = 'employee'
+        cursor.execute(
+            "INSERT INTO users (employee_id, email, password, role) VALUES (%s, %s, %s, %s)",
+            (employee_id, email, hashed_password, role)
+        )
+        # Update applicant status to 'Hired'
+        cursor.execute("UPDATE applicants SET status = %s WHERE reg_id = %s", ('Hired', reg_id))
+        connection.commit()
+        # Predict attrition for the new employee
+        predict_attrition_for_employee(employee_id)
+        cursor.close()
+        connection.close()
+        send_hire_email(applicant['email'], applicant['name'], email, raw_password)
+        return redirect(url_for('applicant_tracker'))
+
+    elif action == 'reject':
+        # Update applicant status to 'Rejected'
+        cursor.execute("UPDATE applicants SET status = %s WHERE reg_id = %s", ('Rejected', reg_id))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        flash('Applicant rejected.', 'info')
+        return redirect(url_for('applicant_tracker'))
+
+    cursor.close()
+    connection.close()
+    flash('Invalid action.', 'error')
+    return redirect(url_for('applicant_tracker'))
+
+@app.route('/applicant-tracker')
+@login_required
+@role_required('hr')
+def applicant_tracker():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT reg_id, name, email, position, department, status
+        FROM applicants
+        ORDER BY reg_id DESC
+    """)
+    applicants = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return render_template("hr/applicant-tracker.html", applicants=applicants, employees=[])
 
 @app.route('/employee_view')
 def employee_view():
@@ -720,7 +815,7 @@ def employee_view():
     # Prompt if profile details are missing
     required_fields = ['dob', 'edufield', 'total_working_years', 'distance', 'marital_status', 'gender']
     if any(not employee.get(field) for field in required_fields):
-        flash('Please complete your profile details for accurate attrition prediction.', 'warning')
+        flash('Please complete your profile details first!', 'warning')
     age = calculate_age(employee.get('dob'))
     return render_template("emp/employee_view.html",
         employee_id=employee['employee_id'],
@@ -785,8 +880,19 @@ def emp_edit_details():
 @app.route('/feedback_portal', methods=['GET', 'POST'])
 @login_required
 def feedback_portal():
+    employee_id = session.get('employee_id')
+    employee = get_employee_by_id(employee_id)
+    # Check if employee has worked for over 1 year
+    years_at_company = employee.get('years_at_company', 0)
+    try:
+        years_at_company = float(years_at_company)
+    except Exception:
+        years_at_company = 0
+
     if request.method == 'POST':
-        employee_id = session.get('employee_id')
+        if years_at_company < 1:
+            flash('You need to be in the company for 1 year to submit feedback.', 'error')
+            return redirect(url_for('employee_view'))
         job_satisfaction = request.form.get('job_satisfaction')
         overtime = request.form.get('overtime')
         env_satisfaction = request.form.get('env_satisfaction')
@@ -1031,6 +1137,40 @@ def get_birthdays_this_month(employees):
         key=lambda e: datetime.strptime(str(e.get('dob')), '%Y-%m-%d').day if e.get('dob') else 0
     )[:5]
     return birthdays
+
+@app.route('/edit_applicant/<int:reg_id>', methods=['POST'])
+@login_required
+@role_required('hr')
+def edit_applicant(reg_id):
+    name = request.form.get('name')
+    email = request.form.get('email')
+    position = request.form.get('position')
+    department = request.form.get('department')
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        UPDATE applicants
+        SET name = %s, email = %s, position = %s, department = %s
+        WHERE reg_id = %s
+    """, (name, email, position, department, reg_id))
+    connection.commit()
+    cursor.close()
+    connection.close()
+    flash('Applicant updated successfully.', 'success')
+    return redirect(url_for('applicant_tracker'))
+
+@app.route('/delete_applicant/<int:reg_id>', methods=['POST'])
+@login_required
+@role_required('hr')
+def delete_applicant(reg_id):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("DELETE FROM applicants WHERE reg_id = %s", (reg_id,))
+    connection.commit()
+    cursor.close()
+    connection.close()
+    flash('Applicant deleted successfully.', 'success')
+    return redirect(url_for('applicant_tracker'))
 
 if __name__ == '__main__':
     app.run(debug=True)
