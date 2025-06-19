@@ -106,6 +106,7 @@
                         Date of Birth <span class="text-red-500">*</span>
                     </label>
                     <input type="date" id="dob" name="dob" required
+                        min="{{ min_dob }}" max="{{ max_dob }}"
                         class="border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-lg p-3 w-full bg-white transition-all outline-none hover:border-indigo-400" />
                     <span class="absolute left-0 top-full mt-2 z-20 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 bg-white border border-indigo-200 text-indigo-700 text-xs rounded shadow-lg px-3 py-2 whitespace-nowrap">
                         Your birth date (for eligibility verification).

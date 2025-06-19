@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash, abort
 import random # For simulating data, remove in production
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import bcrypt  # For password hashing
 from functools import wraps
 from flask_mail import Mail, Message
@@ -10,6 +10,11 @@ import pickle
 import pandas as pd
 from calendar import monthrange
 from markupsafe import Markup
+import re
+import json
+from collections import defaultdict
+import shap
+import numpy as np
 
 app = Flask(__name__)
 
@@ -21,13 +26,68 @@ mail = Mail(app)
 
 MODEL_PATH = 'D:/BIM/Summer Project/project/models/random-forest-model.pkl'
 ENCODER_PATH = 'D:/BIM/Summer Project/project/models/encoders.pkl'
+TRAINING_DATA_PATH = 'D:/BIM/Summer Project/project/datasets/cleaned_ibm_dataset.csv'
 
+# Load the model and encoders
 with open(MODEL_PATH, 'rb') as f:
     model, model_columns = pickle.load(f)
 
 with open(ENCODER_PATH, 'rb') as f:
     encoder_data = pickle.load(f)
     model_columns = encoder_data['columns']
+
+# Load training data for SHAP background dataset
+def load_training_data():
+    """Load and preprocess training data for SHAP background dataset."""
+    try:
+        # Load the training dataset
+        training_data = pd.read_csv(TRAINING_DATA_PATH)
+        
+        # Apply the same preprocessing as used during training
+        # This should match the preprocessing in your training script
+        processed_data = preprocess_training_data(training_data)
+        
+        # Use a sample of the data as background (SHAP works well with 100-1000 samples)
+        background_data = processed_data.sample(min(500, len(processed_data)), random_state=42)
+        
+        return background_data
+    except Exception as e:
+        print(f"Warning: Could not load training data for SHAP background: {e}")
+        return None
+
+def preprocess_training_data(df):
+    """Preprocess training data to match the model input format."""
+    # This should match your training preprocessing
+    # For now, using a simplified version - you may need to adjust based on your actual training preprocessing
+    
+    # Handle missing values
+    df = df.fillna(0)
+    
+    # Ensure all expected columns are present
+    for col in model_columns:
+        if col not in df.columns:
+            df[col] = 0
+    
+    # Select only the columns expected by the model
+    df = df[model_columns]
+    
+    return df
+
+# Initialize SHAP explainer
+background_data = load_training_data()
+if background_data is not None:
+    # Create TreeExplainer with background data for more accurate SHAP values
+    explainer = shap.TreeExplainer(model, background_data, feature_perturbation="interventional")
+else:
+    # Fallback to tree_path_dependent if no background data
+    explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
+
+# Leave day limits
+LEAVE_LIMITS = {
+    'Annual Leave': 5,
+    'Sick Leave': 5,
+    'Personal Leave': 5
+}
 
 def login_required(f):
     @wraps(f)
@@ -199,20 +259,114 @@ def preprocess_employee_data(raw_data):
 
     return df
 
+def group_one_hot_features(feature_names, feature_importance):
+    """Group one-hot encoded features and sum their importance values.
+    
+    Args:
+        feature_names: List of feature names from the model
+        feature_importance: List of importance values from the model
+        
+    Returns:
+        List of tuples (feature_name, importance) sorted by importance
+    """
+    grouped_factors = {}
+    for name, importance in zip(feature_names, feature_importance):
+        # Handle one-hot encoded features
+        if name.startswith('Dept_'):
+            base_name = 'Department'
+        elif name.startswith('EduField_'):
+            base_name = 'Education Field'
+        elif name.startswith('JobRole_'):
+            base_name = 'Job Role'
+        elif name in ['Divorced', 'Married', 'Single']:
+            base_name = 'Marital Status'
+        else:
+            base_name = name
+
+        if base_name not in grouped_factors:
+            grouped_factors[base_name] = 0
+        grouped_factors[base_name] += importance
+
+    # Convert to sorted list
+    return sorted(grouped_factors.items(), key=lambda x: x[1], reverse=True)
+
+def get_shap_explanations(X):
+    """Get SHAP values for a single employee's data.
+    
+    Args:
+        X: Preprocessed employee data as DataFrame
+        
+    Returns:
+        List of tuples (feature_name, shap_value) sorted by absolute SHAP value
+    """
+    try:
+        # Get SHAP values for this specific prediction
+        shap_values = explainer.shap_values(X)
+        
+        # For binary classification, get the values for class 1 (attrition)
+        if isinstance(shap_values, list):
+            shap_values = shap_values[1]
+        
+        # Get feature names and their SHAP values
+        feature_names = X.columns
+        
+        # Create list of (feature_name, shap_value) tuples
+        feature_shap_pairs = list(zip(feature_names, shap_values[0].astype(float)))
+        
+        # Group one-hot encoded features and their SHAP values
+        grouped_factors = {}
+        for name, value in feature_shap_pairs:
+            # Handle one-hot encoded features
+            if name.startswith('Dept_'):
+                base_name = 'Department: ' + name.replace('Dept_', '')
+            elif name.startswith('EduField_'):
+                base_name = 'Education: ' + name.replace('EduField_', '')
+            elif name.startswith('JobRole_'):
+                base_name = 'Position: ' + name.replace('JobRole_', '')
+            elif name in ['Divorced', 'Married', 'Single']:
+                base_name = 'Status: ' + name
+            else:
+                # Clean up other feature names
+                base_name = name.replace('_', ' ').title()
+            
+            grouped_factors[base_name] = value
+
+        # Sort by absolute value for importance
+        sorted_factors = sorted(
+            grouped_factors.items(),
+            key=lambda x: abs(x[1]),
+            reverse=True
+        )
+        
+        return sorted_factors
+        
+    except Exception as e:
+        print(f"Error getting SHAP explanations: {e}")
+        return []
+
 def predict_attrition_for_employee(employee_id):
-    """Predict attrition for a single employee and update the database."""
     emp = get_employee_by_id(employee_id)
     if not emp:
         return
     X = preprocess_employee_data(emp)
     prediction = int(model.predict(X)[0])
+    
+    # Get SHAP-based feature explanations for this specific employee
+    all_factors = get_shap_explanations(X)
+    
+    # Also get prediction probability for more detailed insights
+    prediction_proba = model.predict_proba(X)[0]
+    attrition_probability = float(prediction_proba[1] if len(prediction_proba) > 1 else prediction_proba[0])
+    
     connection = get_db_connection()
     cursor = connection.cursor()
     cursor.execute("""
         UPDATE employees
-        SET attrition_risk = %s
+        SET attrition_risk = %s,
+            attrition_factors = %s,
+            attrition_probability = %s
         WHERE employee_id = %s
-    """, (prediction, employee_id))
+    """, (prediction, json.dumps(all_factors), attrition_probability, employee_id))
     connection.commit()
     cursor.close()
     connection.close()
@@ -225,14 +379,53 @@ def predict_attrition_for_all():
     for emp in employees:
         X = preprocess_employee_data(emp)
         prediction = int(model.predict(X)[0])
+        
+        # Get SHAP-based feature explanations for this specific employee
+        all_factors = get_shap_explanations(X)
+        
+        # Also get prediction probability for more detailed insights
+        prediction_proba = model.predict_proba(X)[0]
+        attrition_probability = float(prediction_proba[1] if len(prediction_proba) > 1 else prediction_proba[0])
+        
         cursor.execute("""
             UPDATE employees
-            SET attrition_risk = %s
+            SET attrition_risk = %s,
+                attrition_factors = %s,
+                attrition_probability = %s
             WHERE employee_id = %s
-        """, (prediction, emp['employee_id']))
+        """, (prediction, json.dumps(all_factors), attrition_probability, emp['employee_id']))
     connection.commit()
     cursor.close()
     connection.close()
+
+def get_remaining_leave_days(employee_id, leave_type):
+    """Calculate remaining leave days for a specific type of leave."""
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        # Get total leave days used for this type
+        cursor.execute("""
+            SELECT SUM(
+                CASE 
+                    WHEN duration = 'Half Day' THEN 0.5
+                    ELSE 1
+                END * (DATEDIFF(end_date, start_date) + 1)
+            ) as total_days
+            FROM leave_requests 
+            WHERE employee_id = %s 
+            AND type = %s 
+            AND status = 'Approved'
+            AND YEAR(start_date) = YEAR(CURRENT_DATE)
+        """, (employee_id, leave_type))
+        result = cursor.fetchone()
+        used_days = result['total_days'] if result['total_days'] is not None else 0
+        
+        # Calculate remaining days
+        remaining_days = LEAVE_LIMITS.get(leave_type, 0) - used_days
+        return max(0, remaining_days)
+    finally:
+        cursor.close()
+        connection.close()
 
 @app.route('/')
 def index():
@@ -314,6 +507,9 @@ def get_departments():
 
 @app.route('/job_apply', methods=['GET', 'POST'])
 def job_apply():
+    today = date.today()
+    min_dob = (today.replace(year=today.year - 60)).isoformat()
+    max_dob = (today.replace(year=today.year - 18)).isoformat()
     if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
@@ -326,7 +522,52 @@ def job_apply():
         distance = request.form['distance_from_home']
         marital_status = request.form['marital_status']
         gender = request.form['gender']
-        # job_level = request.form['job_level']  # Removed
+
+        # Validate email format
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            flash('Please enter a valid email address.', 'error')
+            return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+
+        # Validate total_working_years input
+        try:
+            total_working_years = int(total_working_years)
+            if total_working_years < 0:
+                flash('Total working years cannot be negative.', 'error')
+                return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+        except ValueError:
+            flash('Total working years must be a valid number.', 'error')
+            return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+
+        # Validate distance from home
+        try:
+            distance = int(distance)
+            if distance < 0:
+                flash('Distance from home cannot be negative.', 'error')
+                return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+        except ValueError:
+            flash('Distance from home must be a valid number.', 'error')
+            return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+
+        # Validate date of birth
+        try:
+            dob_date = datetime.strptime(dob, '%Y-%m-%d')
+            age = calculate_age(dob)
+            if age < 18:
+                flash('You must be at least 18 years old to apply.', 'error')
+                return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+            if age > 60:
+                flash('You must be under 60 years old to apply.', 'error')
+                return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+        except ValueError:
+            flash('Invalid date of birth format.', 'error')
+            return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+
+        # Validate working years against age
+        max_working_years = max(age - 18, 0)
+        if total_working_years > max_working_years:
+            flash(f'Total working years ({total_working_years}) cannot exceed your potential working years ({max_working_years}) based on your age ({age}).', 'error')
+            return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
 
         # Connect to your database
         conn = get_db_connection()
@@ -339,7 +580,7 @@ def job_apply():
             """
             cursor.execute(sql, (
                 name, email, dob, position, department, edufield,
-                int(total_working_years), overtime, int(distance),
+                total_working_years, overtime, int(distance),
                 marital_status, gender
             ))
             conn.commit()
@@ -348,7 +589,7 @@ def job_apply():
             conn.close()
         flash('Application submitted successfully!', 'success')
         return redirect(url_for('job_apply'))
-    return render_template('job_apply.html')
+    return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
 
 @app.route('/dashboard')
 @login_required
@@ -449,23 +690,7 @@ def dashboard():
     attrition_gender_data = [row['count'] for row in attrition_gender]
 
     # Attrition by Age Group
-    cursor.execute("""
-        SELECT 
-            CASE 
-                WHEN age < 25 THEN '18-24'
-                WHEN age < 35 THEN '25-34'
-                WHEN age < 45 THEN '35-44'
-                WHEN age < 55 THEN '45-54'
-                ELSE '55+'
-            END as age_group,
-            COUNT(*) as count
-        FROM employees
-        WHERE attrition_risk = 1
-        GROUP BY age_group
-        ORDER BY MIN(age)
-    """)
-    attrition_age = cursor.fetchall()
-    attrition_age_labels = [row['age_group'] for row in attrition_age]
+   
     attrition_age_data = [row['count'] for row in attrition_age]
 
     # Attrition by Department
@@ -620,8 +845,17 @@ def edit_employee(employee_id):
         department = request.form['department']
         salary = request.form['salary']
         date_joined = request.form['date_joined']
-        # age = request.form['age']
-        # marital_status = request.form['marital_status']
+        # Validate salary is not negative
+        try:
+            salary_value = float(salary)
+            if salary_value < 0:
+                flash('Salary cannot be negative.', 'error')
+                employee = get_employee_by_id(employee_id)
+                return render_template('hr/edit_employee.html', employee=employee, employees=[])
+        except ValueError:
+            flash('Salary must be a valid number.', 'error')
+            employee = get_employee_by_id(employee_id)
+            return render_template('hr/edit_employee.html', employee=employee, employees=[])
 
         connection = get_db_connection()
         cursor = connection.cursor()
@@ -938,46 +1172,78 @@ def emp_leave():
         try:
             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
-            if (start_date_obj and end_date_obj) > (datetime.now() - timedelta(days=1)):
+            
+            # # Check if dates are in the future
+            # if start_date_obj < datetime.now() - timedelta(days=1):
+            #     flash('Leave start date cannot be in the past.', 'error')
+            #     return redirect(url_for('emp_leave'))
+            
+            # Check if end date is after start date
+            if end_date_obj < start_date_obj:
+                flash('End date cannot be before start date.', 'error')
+                return redirect(url_for('emp_leave'))
 
-                # Insert leave request into the database
-                connection = get_db_connection()
-                cursor = connection.cursor()
-                cursor.execute(
-                    "INSERT INTO leave_requests (employee_id, type, duration, start_date, end_date, reason, status) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending')
-                )
-                connection.commit()
-                cursor.close()
-                connection.close()
-                flash('Leave request submitted.', 'success')
+            # Calculate requested days
+            requested_days = calculate_leave_days(start_date, end_date, duration)
+            
+            # Check remaining leave days
+            remaining_days = get_remaining_leave_days(session.get('employee_id'), leave_type)
+            if requested_days > remaining_days:
+                flash(f'You only have {remaining_days} days of {leave_type} remaining.', 'error')
                 return redirect(url_for('emp_leave'))
-            else:
-                flash('Invalid leave request. Please check the dates and try again.', 'error')
-                return redirect(url_for('emp_leave'))
+
+            # Insert leave request into the database
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(
+                "INSERT INTO leave_requests (employee_id, type, duration, start_date, end_date, reason, status) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending')
+            )
+            connection.commit()
+            cursor.close()
+            connection.close()
+            flash('Leave request submitted successfully.', 'success')
+            return redirect(url_for('emp_leave'))
         except Exception as e:
             flash('Invalid leave request. Please check the dates and try again.', 'error')
             return redirect(url_for('emp_leave'))
 
-    # GET request - fetch existing leave requests
+    # GET request - fetch existing leave requests and remaining days
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM leave_requests WHERE employee_id = %s ORDER BY `start_date` DESC", 
-                  (session.get('employee_id'),))
+    
+    # Get leave requests
+    cursor.execute("""
+        SELECT * FROM leave_requests 
+        WHERE employee_id = %s 
+        ORDER BY start_date DESC
+    """, (session.get('employee_id'),))
     leave_requests = cursor.fetchall()
-    # Calculate total days
+    
+    # Calculate total days for each request
     for leave_request in leave_requests:
         leave_request['total_days'] = calculate_leave_days(
-            leave_request['start_date'], leave_request['end_date'], leave_request['duration']
+            leave_request['start_date'], 
+            leave_request['end_date'], 
+            leave_request['duration']
         )
+    
+    # Get remaining days for each leave type
+    remaining_days = {
+        leave_type: get_remaining_leave_days(session.get('employee_id'), leave_type)
+        for leave_type in LEAVE_LIMITS.keys()
+    }
+    
     connection.close()
 
     return render_template(
         "emp/emp_leave.html",
         name=session.get('name'),
         position=session.get('position'),
-        leave_requests=leave_requests
+        leave_requests=leave_requests,
+        remaining_days=remaining_days,
+        leave_limits=LEAVE_LIMITS
     )
 
 @app.route('/update-leave-status/<int:request_id>/<status>')
@@ -1033,11 +1299,128 @@ def predict_attrition():
     cursor = connection.cursor(dictionary=True)
     cursor.execute("SELECT * FROM employees WHERE attrition_risk = 1")
     high_risk_employees = cursor.fetchall()
+
+    # Aggregate factors
+    factor_totals = defaultdict(float)
+    for emp in high_risk_employees:
+        factors = emp.get('attrition_factors')
+        if factors:
+            try:
+                factor_list = json.loads(factors)
+                for factor, importance in factor_list:
+                    factor_totals[factor] += importance
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+    # Sort and normalize
+    sorted_factors = sorted(factor_totals.items(), key=lambda x: x[1], reverse=True)
+    total_importance = sum(val for _, val in sorted_factors) or 1
+    factors_chart_data = {
+        "labels": [str(f) for f, _ in sorted_factors],
+        "data": [round((v / total_importance) * 100, 2) for _, v in sorted_factors]
+    }
+
+    # Attrition by Gender
+    cursor.execute("""
+        SELECT gender, COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY gender
+    """)
+    attrition_gender = cursor.fetchall()
+    attrition_gender_labels = [str(row['gender'] or 'Unknown') for row in attrition_gender]
+    attrition_gender_data = [int(row['count']) for row in attrition_gender]
+
+    # Attrition by Age Group
+    cursor.execute("""
+        SELECT 
+            CASE 
+                WHEN age < 25 THEN '18-24'
+                WHEN age < 35 THEN '25-34'
+                WHEN age < 45 THEN '35-44'
+                WHEN age < 55 THEN '45-54'
+                ELSE '55+'
+            END as age_group,
+            COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY age_group
+        ORDER BY MIN(age)
+    """)
+    attrition_age = cursor.fetchall()
+    attrition_age_labels = [str(row['age_group']) for row in attrition_age]
+    attrition_age_data = [int(row['count']) for row in attrition_age]
+
+    # Attrition by Department
+    departments = get_departments()
+    format_strings = ','.join(['%s'] * len(departments))
+    cursor.execute(f"""
+        SELECT department, COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1 AND department IN ({format_strings})
+        GROUP BY department
+    """, tuple(departments))
+    attrition_dept = cursor.fetchall()
+    attrition_dept_labels = [str(row['department']) for row in attrition_dept]
+    attrition_dept_data = [int(row['count']) for row in attrition_dept]
+
+    # Attrition by Salary Band (5k bands)
+    cursor.execute("""
+        SELECT 
+            CONCAT(FLOOR(salary/5000)*5, 'k-', FLOOR(salary/5000)*5+5, 'k') as salary_band,
+            COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY salary_band
+        ORDER BY MIN(salary)
+    """)
+    attrition_salary = cursor.fetchall()
+    attrition_salary_labels = [str(row['salary_band']) for row in attrition_salary]
+    attrition_salary_data = [int(row['count']) for row in attrition_salary]
+
+    # Attrition by Overtime
+    cursor.execute("""
+        SELECT overtime, COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY overtime
+    """)
+    attrition_overtime = cursor.fetchall()
+    attrition_overtime_labels = [str(row['overtime'] or 'Unknown') for row in attrition_overtime]
+    attrition_overtime_data = [int(row['count']) for row in attrition_overtime]
+
     cursor.close()
     connection.close()
+
+    # Prepare attrition chart data
+    attrition_chart_data = {
+        'gender': {
+            'labels': attrition_gender_labels,
+            'data': attrition_gender_data
+        },
+        'age': {
+            'labels': attrition_age_labels,
+            'data': attrition_age_data
+        },
+        'department': {
+            'labels': attrition_dept_labels,
+            'data': attrition_dept_data
+        },
+        'salary': {
+            'labels': attrition_salary_labels,
+            'data': attrition_salary_data
+        },
+        'overtime': {
+            'labels': attrition_overtime_labels,
+            'data': attrition_overtime_data
+        }
+    }
+
     return render_template(
         "hr/predict-attrition.html",
-        employees=high_risk_employees
+        employees=high_risk_employees,
+        factors_chart_data=factors_chart_data,
+        attrition_chart_data=attrition_chart_data
     )
 
 @app.route('/delete-leave-request/<int:leave_id>', methods=['POST'])
@@ -1050,6 +1433,13 @@ def delete_leave_request(leave_id):
     leave = cursor.fetchone()
     if not leave:
         flash('You are not authorized to delete this leave request.', 'error')
+        cursor.close()
+        connection.close()
+        return redirect(url_for('emp_leave'))
+
+    # Check if the leave request is approved
+    if leave['status'] == 'Approved':
+        flash('Cannot delete an approved leave request.', 'error')
         cursor.close()
         connection.close()
         return redirect(url_for('emp_leave'))
@@ -1171,6 +1561,86 @@ def delete_applicant(reg_id):
     connection.close()
     flash('Applicant deleted successfully.', 'success')
     return redirect(url_for('applicant_tracker'))
+
+@app.template_filter('to_json')
+def to_json(value):
+    if value is None:
+        return '[]'
+    try:
+        return json.dumps(value)
+    except:
+        return '[]'
+
+@app.template_filter('from_json')
+def from_json(value):
+    if value is None:
+        return []
+    try:
+        return json.loads(value)
+    except:
+        return []
+
+def ensure_attrition_factors_column():
+    """Ensure the attrition_factors and attrition_probability columns exist in the employees table."""
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        # Check if attrition_factors column exists
+        cursor.execute("SHOW COLUMNS FROM employees LIKE 'attrition_factors'")
+        if not cursor.fetchone():
+            # Add the column if it doesn't exist
+            cursor.execute("ALTER TABLE employees ADD COLUMN attrition_factors JSON")
+            connection.commit()
+        
+        # Check if attrition_probability column exists
+        cursor.execute("SHOW COLUMNS FROM employees LIKE 'attrition_probability'")
+        if not cursor.fetchone():
+            # Add the column if it doesn't exist
+            cursor.execute("ALTER TABLE employees ADD COLUMN attrition_probability DECIMAL(5,4)")
+            connection.commit()
+    finally:
+        cursor.close()
+        connection.close()
+
+def update_employee_shap_explanations(employee_id):
+    """Update SHAP explanations for an employee after their data changes."""
+    try:
+        predict_attrition_for_employee(employee_id)
+        return True
+    except Exception as e:
+        print(f"Error updating SHAP explanations for employee {employee_id}: {e}")
+        return False
+
+def flash_attrition_status(employee_id):
+    """Flash a message about the employee's attrition status after prediction."""
+    emp = get_employee_by_id(employee_id)
+    if emp and emp.get('attrition_risk') == 1:
+        flash(f'Warning: {emp["name"]} is at high risk of attrition.', 'warning')
+    elif emp and emp.get('attrition_risk') == 0:
+        flash(f'{emp["name"]} is at low risk of attrition.', 'success')
+
+# Call this when the app starts
+ensure_attrition_factors_column()
+
+@app.route('/get_explanation/<int:employee_id>')
+@login_required
+@role_required('hr')
+def get_explanation(employee_id):
+    """Get SHAP explanation data for an employee."""
+    employee = get_employee_by_id(employee_id)
+    if not employee:
+        return jsonify({'error': 'Employee not found'}), 404
+        
+    try:
+        factors = json.loads(employee.get('attrition_factors', '[]'))
+        return jsonify({
+            'name': employee['name'],
+            'probability': employee.get('attrition_probability', 0),
+            'factors': factors
+        })
+    except Exception as e:
+        print(f"Error getting explanation: {e}")
+        return jsonify({'error': 'Failed to get explanation'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -44,7 +44,9 @@
             <th class="py-2 px-4 text-left">Department</th>
             <th class="py-2 px-4 text-left">Salary</th>
             <th class="py-2 px-4 text-left">Years at Company</th>
-            <th class="py-2 px-4 text-left">Status</th>
+            <th class="py-2 px-4 text-left">Attrition</th>
+            <th class="py-2 px-4 text-left">Risk Probability</th>
+            <th class="py-2 px-4 text-left">Explanation</th>
             <th class="py-2 px-4 text-right">Actions</th>
         </tr>
     </thead>
@@ -57,7 +59,36 @@
             <td class="py-2 px-4">{{ employee.department }}</td>
             <td class="py-2 px-4">{{ employee.salary }}</td>
             <td class="py-2 px-4">{{ employee.years_at_company }} years</td>
-            <td class="py-2 px-4">{{ employee.attrition_risk }}</td>
+            <td class="py-2 px-4">
+                {% if employee.attrition_risk == 1 %}
+                    <span class="text-red-600 font-bold">High</span>
+                {% else %}
+                    <span class="text-green-600 font-bold">Low</span>
+                {% endif %}
+            </td>
+            <td class="py-2 px-4">
+                {% if employee.attrition_probability is not none %}
+                    <div class="flex items-center group">
+                        <div class="relative w-32 bg-gray-100 rounded-full h-3 mr-3 overflow-hidden shadow-inner">
+                            <div 
+                                class="absolute top-0 left-0 h-full transition-all duration-300 ease-in-out {% if employee.attrition_probability > 0.7 %}bg-gradient-to-r from-red-500 to-red-600{% elif employee.attrition_probability > 0.5 %}bg-gradient-to-r from-yellow-500 to-red-500{% else %}bg-gradient-to-r from-green-400 to-green-500{% endif %} rounded-full shadow-sm group-hover:opacity-90" 
+                                style="width: {% if employee.attrition_probability %}{{ (employee.attrition_probability * 100)|round|int }}{% else %}0{% endif %}%">
+                            </div>
+                        </div>
+                        <span class="font-medium {% if employee.attrition_probability > 0.7 %}text-red-600{% elif employee.attrition_probability > 0.5 %}text-yellow-600{% else %}text-green-600{% endif %} group-hover:opacity-90">
+                            {{ "%.1f"|format(employee.attrition_probability * 100) }}%
+                        </span>
+                    </div>
+                {% else %}
+                    <span class="text-gray-400">N/A</span>
+                {% endif %}
+            </td>
+            <td class="py-2 px-4">
+                <button onclick="showExplanation({{ employee.employee_id }})" 
+                        class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
+                    <i class="fas fa-info-circle"></i> View Details
+                </button>
+            </td>
             <td class="py-2 px-4 text-right">
                 <a href="{{ url_for('edit_employee', employee_id=employee.employee_id) }}" class="text-blue-600 hover:underline">Edit</a>
                 <a href="{{ url_for('delete_employee', employee_id=employee.employee_id) }}" onclick="return confirm('Are you sure you want to delete this employee?')" class="text-red-600 hover:underline ml-2">Delete</a>
@@ -67,6 +98,83 @@
     </tbody>
 </table>
 
+<!-- SHAP Explanation Modal -->
+<div id="explanationModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-4/5 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Attrition Risk Explanation</h3>
+            <button onclick="closeModal()" class="text-gray-600 hover:text-gray-800">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="max-h-[60vh] overflow-y-auto">
+            <div id="explanationContent">
+                <!-- Content will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add this script block at the end of your content block -->
+<script>
+function showExplanation(employeeId) {
+    fetch(`/get_explanation/${employeeId}`)
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('explanationContent');
+            let html = '<div class="space-y-4">';
+            
+            // Add employee info
+            html += `
+                <div class="p-4 bg-blue-50 rounded">
+                    <p class="font-medium">Employee: ${data.name}</p>
+                    <p class="text-sm">Attrition Probability: ${(data.probability * 100).toFixed(1)}%</p>
+                </div>
+            `;
+
+            // Add SHAP values explanation
+            html += '<div class="space-y-2">';
+            data.factors.forEach(factor => {
+                const [name, value] = factor;
+                const isPositive = value > 0;
+                const barWidth = Math.abs(value) * 100;
+                const barColor = isPositive ? 'bg-red-500' : 'bg-green-500';
+                
+                html += `
+                    <div class="p-2">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm font-medium">${name}</span>
+                            <span class="text-sm ${isPositive ? 'text-red-600' : 'text-green-600'}">
+                                ${value > 0 ? '+' : ''}${value.toFixed(3)}
+                            </span>
+                        </div>
+                        <div class="h-2 w-full bg-gray-200 rounded">
+                            <div class="${barColor} h-full rounded" 
+                                 style="width: ${Math.min(Math.abs(barWidth), 100)}%; 
+                                        margin-left: ${isPositive ? '50%' : '0'};
+                                        transform: ${isPositive ? 'none' : 'translateX(-100%)'};">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+            content.innerHTML = html;
+            document.getElementById('explanationModal').classList.remove('hidden');
+        });
+}
+
+function closeModal() {
+    document.getElementById('explanationModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('explanationModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+</script>
 {% endblock %}
 
 

@@ -9,27 +9,42 @@
 {% block content %}
 <div class="w-full mx-auto">
     <div class="bg-white rounded-lg shadow-lg p-6">
-        <!-- Leave Balance
+        <!-- Leave Balance -->
         <div class="mb-6">
             <h2 class="text-xl font-semibold mb-4">Leave Balance</h2>
             <div class="grid grid-cols-3 gap-4">
-                <div class="bg-blue-50 p-4 rounded-lg">
+                <div class="bg-blue-50 p-4 rounded-lg {% if remaining_days['Annual Leave'] == 0 %}opacity-50{% endif %}">
                     <h3 class="text-lg font-medium text-blue-800">Annual Leave</h3>
-                    <p class="text-2xl font-bold text-blue-600">15 days</p>
-                    <p class="text-sm text-blue-600">Remaining</p>
+                    <div class="mt-2">
+                        <p class="text-2xl font-bold text-blue-600">{{ remaining_days['Annual Leave'] }}/{{ leave_limits['Annual Leave'] }}</p>
+                        <p class="text-sm text-blue-600">days remaining</p>
+                    </div>
+                    {% if remaining_days['Annual Leave'] == 0 %}
+                    <p class="text-sm text-red-600 mt-2">No days remaining</p>
+                    {% endif %}
                 </div>
-                <div class="bg-green-50 p-4 rounded-lg">
+                <div class="bg-green-50 p-4 rounded-lg {% if remaining_days['Sick Leave'] == 0 %}opacity-50{% endif %}">
                     <h3 class="text-lg font-medium text-green-800">Sick Leave</h3>
-                    <p class="text-2xl font-bold text-green-600">10 days</p>
-                    <p class="text-sm text-green-600">Remaining</p>
+                    <div class="mt-2">
+                        <p class="text-2xl font-bold text-green-600">{{ remaining_days['Sick Leave'] }}/{{ leave_limits['Sick Leave'] }}</p>
+                        <p class="text-sm text-green-600">days remaining</p>
+                    </div>
+                    {% if remaining_days['Sick Leave'] == 0 %}
+                    <p class="text-sm text-red-600 mt-2">No days remaining</p>
+                    {% endif %}
                 </div>
-                <div class="bg-purple-50 p-4 rounded-lg">
+                <div class="bg-purple-50 p-4 rounded-lg {% if remaining_days['Personal Leave'] == 0 %}opacity-50{% endif %}">
                     <h3 class="text-lg font-medium text-purple-800">Personal Leave</h3>
-                    <p class="text-2xl font-bold text-purple-600">5 days</p>
-                    <p class="text-sm text-purple-600">Remaining</p>
+                    <div class="mt-2">
+                        <p class="text-2xl font-bold text-purple-600">{{ remaining_days['Personal Leave'] }}/{{ leave_limits['Personal Leave'] }}</p>
+                        <p class="text-sm text-purple-600">days remaining</p>
+                    </div>
+                    {% if remaining_days['Personal Leave'] == 0 %}
+                    <p class="text-sm text-red-600 mt-2">No days remaining</p>
+                    {% endif %}
                 </div>
             </div>
-        </div> -->
+        </div>
 
         <!-- Apply for Leave -->
         <div class="mb-6">
@@ -53,16 +68,16 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Start Date</label>
-                        <input type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="start_date">
+                        <input type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="start_date" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">End Date</label>
-                        <input type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="end_date">
+                        <input type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" name="end_date" required>
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Reason</label>
-                    <textarea class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" rows="3" name="reason"></textarea>
+                    <textarea class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" rows="3" name="reason" required></textarea>
                 </div>
                 <div class="flex justify-end">
                     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
@@ -84,6 +99,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Days</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
@@ -110,29 +126,47 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['start_date'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['end_date'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full
+                                    {% if leave_request['duration'] == 'Half Day' %}
+                                        bg-indigo-100 text-indigo-800
+                                    {% else %}
+                                        bg-gray-100 text-gray-800
+                                    {% endif %}
+                                ">
+                                    {{ leave_request['duration'] }}
+                                </span>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['total_days'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ leave_request['reason'] }}</td>
                             {% if leave_request['status'] == 'Pending' %}
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 py-1 text-sm rounded-full bg-yellow-100 text-yellow-800">Pending</span>
                             </td>
-                            {% elif leave_request['status'] == 'Approved' %}
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 text-sm rounded-full bg-green-100 text-green-800">Approved</span>
-                            </td>
-                            {% elif leave_request['status'] == 'Rejected' %}
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">Rejected</span>
-                            </td>
-                            {% endif %}
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <form action="{{ url_for('delete_leave_request', leave_id=leave_request['leave_id']) }}" method="post" style="display:inline;">
                                     <button type="submit" class="text-red-600 hover:text-red-800 ml-4" onclick="return confirm('Are you sure you want to delete this leave request?');">Delete</button>
                                 </form>
                             </td>
+                            {% elif leave_request['status'] == 'Approved' %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full bg-green-100 text-green-800">Approved</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-gray-400">-</span>
+                            </td>
+                            {% elif leave_request['status'] == 'Rejected' %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">Rejected</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <form action="{{ url_for('delete_leave_request', leave_id=leave_request['leave_id']) }}" method="post" style="display:inline;">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 ml-4" onclick="return confirm('Are you sure you want to delete this leave request?');">Delete</button>
+                                </form>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
-                        <!-- Add more rows as needed -->
                     </tbody>
                 </table>
             </div>
