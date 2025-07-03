@@ -32,10 +32,10 @@
           >
         </div>
         <ul class="py-4">
-          <li class="px-6 py-4">
+          <li class="px-6 py-4 {% if request.endpoint == 'dashboard' %}bg-blue-50 rounded-md{% endif %}">
             <a
               href="{{ url_for('dashboard') }}"
-              class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+              class="nav-link flex items-center {% if request.endpoint == 'dashboard' %}text-[#4285F4] font-semibold{% else %}text-gray-600{% endif %} hover:text-[#4285F4] group"
             >
               <svg
                 class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
@@ -53,10 +53,10 @@
               <span class="relative">Dashboard</span>
             </a>
           </li>
-          <li class="px-6 py-4">
+          <li class="px-6 py-4 {% if request.endpoint == 'employees' %}bg-blue-50 rounded-md{% endif %}">
             <a
               href="{{ url_for('employees') }}"
-              class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+              class="nav-link flex items-center {% if request.endpoint == 'employees' %}text-[#4285F4] font-semibold{% else %}text-gray-600{% endif %} hover:text-[#4285F4] group"
             >
               <svg
                 class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
@@ -74,10 +74,10 @@
               <span class="relative">Employees</span>
             </a>
           </li>
-          <li class="px-6 py-4">
+          <li class="px-6 py-4 {% if request.endpoint == 'leave_requests' %}bg-blue-50 rounded-md{% endif %}">
             <a
               href="{{ url_for('leave_requests') }}"
-              class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+              class="nav-link flex items-center {% if request.endpoint == 'leave_requests' %}text-[#4285F4] font-semibold{% else %}text-gray-600{% endif %} hover:text-[#4285F4] group"
             >
               <svg
                 class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
@@ -95,10 +95,10 @@
               <span class="relative">Leave Requests</span>
             </a>
           </li>
-          <li class="px-6 py-4">
+          <li class="px-6 py-4 {% if request.endpoint == 'applicant_tracker' %}bg-blue-50 rounded-md{% endif %}">
             <a
               href="{{ url_for('applicant_tracker') }}"
-              class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
+              class="nav-link flex items-center {% if request.endpoint == 'applicant_tracker' %}text-[#4285F4] font-semibold{% else %}text-gray-600{% endif %} hover:text-[#4285F4] group"
             >
               <svg
                 class="w-5 h-5 mr-3 text-gray-400 group-hover:text-[#4285F4] transition-colors duration-200"
@@ -115,7 +115,8 @@
               </svg>
               <span class="relative">Applicant Tracker</span>
             </a>
-          <li class="px-6 py-4">
+          </li>
+          <!-- <li class="px-6 py-4">
             <a
               { }
               href="{{ url_for('predict_attrition', employee_id=employees.employee_id) }}"
@@ -137,11 +138,11 @@
               </svg>
               <span class="relative">Attrition</span>
             </a>
-          </li>
+          </li> -->
         </ul>
       </div>
       <ul class="py-4 border-t border-gray-100">
-        <li class="px-6 py-4">
+        <!-- <li class="px-6 py-4">
           <a
             href="#"
             class="nav-link flex items-center text-gray-600 hover:text-[#4285F4] group"
@@ -167,7 +168,7 @@
             </svg>
             <span class="relative">Settings</span>
           </a>
-        </li>
+        </li> -->
         <li class="px-6 py-4">
           <a
             href="{{ url_for('logout')}}"

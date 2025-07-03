@@ -15,6 +15,7 @@ import json
 from collections import defaultdict
 import shap
 import numpy as np
+import traceback  # For detailed error logging
 
 app = Flask(__name__)
 
@@ -304,14 +305,20 @@ def get_shap_explanations(X):
         shap_values = explainer.shap_values(X)
         
         # For binary classification, get the values for class 1 (attrition)
+        # Fix: Use .tolist() for correct truth value checking
         if isinstance(shap_values, list):
+            # Some SHAP versions return a list of arrays, one per class
             shap_values = shap_values[1]
         
-        # Get feature names and their SHAP values
-        feature_names = X.columns
+        # Ensure shap_values is a 2D array
+        if hasattr(shap_values, "shape") and len(shap_values.shape) == 1:
+            shap_values = shap_values.reshape(1, -1)
         
-        # Create list of (feature_name, shap_value) tuples
-        feature_shap_pairs = list(zip(feature_names, shap_values[0].astype(float)))
+        feature_names = X.columns
+
+        # Fix: Use .tolist() for correct iteration
+        shap_values_row = shap_values[0].tolist() if hasattr(shap_values[0], "tolist") else list(shap_values[0])
+        feature_shap_pairs = list(zip(feature_names, shap_values_row))
         
         # Group one-hot encoded features and their SHAP values
         grouped_factors = {}
@@ -342,6 +349,7 @@ def get_shap_explanations(X):
         
     except Exception as e:
         print(f"Error getting SHAP explanations: {e}")
+        traceback.print_exc()
         return []
 
 def predict_attrition_for_employee(employee_id):
@@ -522,6 +530,7 @@ def job_apply():
         distance = request.form['distance_from_home']
         marital_status = request.form['marital_status']
         gender = request.form['gender']
+        job_level = request.form.get('job_level')
 
         # Validate email format
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -568,6 +577,8 @@ def job_apply():
         if total_working_years > max_working_years:
             flash(f'Total working years ({total_working_years}) cannot exceed your potential working years ({max_working_years}) based on your age ({age}).', 'error')
             return render_template('job_apply.html', min_dob=min_dob, max_dob=max_dob)
+        
+        # Default values for other fields
 
         # Connect to your database
         conn = get_db_connection()
@@ -575,13 +586,13 @@ def job_apply():
             cursor = conn.cursor()
             sql = """
             INSERT INTO applicants
-            (name, email, dob, position, department, edufield, total_working_years, overtime, distance, marital_status, gender)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (name, email, dob, position, department, edufield, total_working_years, overtime, distance, marital_status, gender, job_level)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(sql, (
                 name, email, dob, position, department, edufield,
                 total_working_years, overtime, int(distance),
-                marital_status, gender
+                marital_status, gender, job_level
             ))
             conn.commit()
             cursor.close()
@@ -654,6 +665,26 @@ def dashboard():
     age_data = cursor.fetchall()
     age_labels = [row['age_group'] for row in age_data]
     age_data_counts = [row['count'] for row in age_data]
+
+    # Fix: Get Attrition by Age Group
+    cursor.execute("""
+        SELECT 
+            CASE 
+                WHEN age < 25 THEN '18-24'
+                WHEN age < 35 THEN '25-34'
+                WHEN age < 45 THEN '35-44'
+                WHEN age < 55 THEN '45-54'
+                ELSE '55+'
+            END as age_group,
+            COUNT(*) as count
+        FROM employees
+        WHERE attrition_risk = 1
+        GROUP BY age_group
+        ORDER BY MIN(age)
+    """)
+    attrition_age = cursor.fetchall()
+    attrition_age_labels = [str(row['age_group']) for row in attrition_age]
+    attrition_age_data = [int(row['count']) for row in attrition_age]
 
     # Get salary distribution (5k bands)
     cursor.execute("""
@@ -773,7 +804,56 @@ def logout():
 @role_required('hr')
 def employees():
     employees = get_all_employees()
-    return render_template("hr/employees.html", employees=employees)
+    feature_summary = calculate_global_feature_importance()
+    # For each employee, add explanation and key_factors for direct template rendering
+    for emp in employees:
+        # Defensive: parse factors
+        try:
+            factors_raw = emp.get('attrition_factors', '[]')
+            if not factors_raw or (isinstance(factors_raw, str) and factors_raw.strip() == ''):
+                factors = []
+            else:
+                try:
+                    factors = json.loads(factors_raw)
+                except Exception:
+                    factors = []
+            if not isinstance(factors, list):
+                factors = []
+            shap_factors = []
+            for item in factors:
+                if isinstance(item, (list, tuple)) and len(item) == 2:
+                    feature, value = item
+                    try:
+                        impact = float(value)
+                    except Exception:
+                        impact = 0
+                    shap_factors.append((feature, impact))
+            top_factors = sorted(shap_factors, key=lambda x: abs(x[1]), reverse=True)[:8]
+            key_factors = group_and_map_factors(top_factors, emp)
+            risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
+            probability = float(emp.get('attrition_probability', 0)) * 100
+            name = emp.get('name', 'This employee')
+            if key_factors:
+                factor_sentences = [f"{f['feature'].lower()} is {f['value']}" for f in key_factors]
+                explanation = (
+                    f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
+                    f"Key contributing factors include: " + "; ".join(factor_sentences) + "."
+                )
+            else:
+                explanation = (
+                    f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
+                    "However, there were no key factors identified."
+                )
+            emp['explanation'] = explanation
+            emp['key_factors'] = key_factors
+        except Exception:
+            emp['explanation'] = "No explanation available."
+            emp['key_factors'] = []
+    return render_template(
+        "hr/employees.html", 
+        employees=employees,
+        feature_summary=feature_summary
+    )
 
 @app.route('/employees/add_employee', methods=['GET', 'POST'])
 def add_employee():
@@ -1131,7 +1211,7 @@ def feedback_portal():
         overtime = request.form.get('overtime')
         env_satisfaction = request.form.get('env_satisfaction')
         job_involvement = request.form.get('job_involvement')
-        job_level = request.form.get('job_level')
+        # job_level = request.form.get('job_level')
         work_life_balance = request.form.get('work_life_balance')
 
         connection = get_db_connection()
@@ -1142,12 +1222,11 @@ def feedback_portal():
                 overtime = %s,
                 env_satisfaction = %s,
                 job_involvement = %s,
-                job_level = %s,
                 work_life_balance = %s
             WHERE employee_id = %s
         """, (
             job_satisfaction, overtime, env_satisfaction,
-            job_involvement, job_level, work_life_balance, employee_id
+            job_involvement, work_life_balance, employee_id
         ))
         connection.commit()
         cursor.close()
@@ -1172,70 +1251,50 @@ def emp_leave():
         try:
             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
-            
-            # # Check if dates are in the future
-            # if start_date_obj < datetime.now() - timedelta(days=1):
-            #     flash('Leave start date cannot be in the past.', 'error')
-            #     return redirect(url_for('emp_leave'))
-            
-            # Check if end date is after start date
-            if end_date_obj < start_date_obj:
-                flash('End date cannot be before start date.', 'error')
-                return redirect(url_for('emp_leave'))
+            if (start_date_obj and end_date_obj) > (datetime.now() - timedelta(days=1)):
 
-            # Calculate requested days
-            requested_days = calculate_leave_days(start_date, end_date, duration)
-            
-            # Check remaining leave days
-            remaining_days = get_remaining_leave_days(session.get('employee_id'), leave_type)
-            if requested_days > remaining_days:
-                flash(f'You only have {remaining_days} days of {leave_type} remaining.', 'error')
+                # Insert leave request into the database
+                connection = get_db_connection()
+                cursor = connection.cursor()
+                cursor.execute(
+                    "INSERT INTO leave_requests (employee_id, type, duration, start_date, end_date, reason, status) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending')
+                )
+                connection.commit()
+                cursor.close()
+                connection.close()
+                flash('Leave request submitted.', 'success')
                 return redirect(url_for('emp_leave'))
-
-            # Insert leave request into the database
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute(
-                "INSERT INTO leave_requests (employee_id, type, duration, start_date, end_date, reason, status) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (session.get('employee_id'), leave_type, duration, start_date, end_date, reason, 'Pending')
-            )
-            connection.commit()
-            cursor.close()
-            connection.close()
-            flash('Leave request submitted successfully.', 'success')
-            return redirect(url_for('emp_leave'))
+            else:
+                flash('Invalid leave request. Please check the dates and try again.', 'error')
+                return redirect(url_for('emp_leave'))
         except Exception as e:
             flash('Invalid leave request. Please check the dates and try again.', 'error')
             return redirect(url_for('emp_leave'))
 
-    # GET request - fetch existing leave requests and remaining days
+    # GET request - fetch existing leave requests
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    
-    # Get leave requests
-    cursor.execute("""
-        SELECT * FROM leave_requests 
-        WHERE employee_id = %s 
-        ORDER BY start_date DESC
-    """, (session.get('employee_id'),))
+    cursor.execute("SELECT * FROM leave_requests WHERE employee_id = %s ORDER BY `start_date` DESC", 
+                  (session.get('employee_id'),))
     leave_requests = cursor.fetchall()
-    
-    # Calculate total days for each request
+    # Calculate total days
     for leave_request in leave_requests:
         leave_request['total_days'] = calculate_leave_days(
-            leave_request['start_date'], 
-            leave_request['end_date'], 
-            leave_request['duration']
+            leave_request['start_date'], leave_request['end_date'], leave_request['duration']
         )
-    
-    # Get remaining days for each leave type
-    remaining_days = {
-        leave_type: get_remaining_leave_days(session.get('employee_id'), leave_type)
-        for leave_type in LEAVE_LIMITS.keys()
-    }
-    
     connection.close()
+
+    # --- Add this block to calculate leave balances ---
+    employee_id = session.get('employee_id')
+    remaining_days = {
+        'Annual Leave': get_remaining_leave_days(employee_id, 'Annual Leave'),
+        'Sick Leave': get_remaining_leave_days(employee_id, 'Sick Leave'),
+        'Personal Leave': get_remaining_leave_days(employee_id, 'Personal Leave')
+    }
+    leave_limits = LEAVE_LIMITS
+    # -------------------------------------------------
 
     return render_template(
         "emp/emp_leave.html",
@@ -1243,7 +1302,7 @@ def emp_leave():
         position=session.get('position'),
         leave_requests=leave_requests,
         remaining_days=remaining_days,
-        leave_limits=LEAVE_LIMITS
+        leave_limits=leave_limits
     )
 
 @app.route('/update-leave-status/<int:request_id>/<status>')
@@ -1622,24 +1681,184 @@ def flash_attrition_status(employee_id):
 # Call this when the app starts
 ensure_attrition_factors_column()
 
+def calculate_global_feature_importance():
+    """
+    Calculate global feature importance using the model's built-in feature_importances_,
+    grouping one-hot encoded features (Dept_, EduField_, JobRole_, MaritalStatus).
+    """
+    try:
+        importances = model.feature_importances_
+        feature_names = encoder_data['columns']
+        grouped = {}
+        for name, imp in zip(feature_names, importances):
+            if name.startswith('Dept_'):
+                key = 'Department'
+            elif name.startswith('EduField_'):
+                key = 'Education Field'
+            elif name.startswith('JobRole_'):
+                key = 'Job Role'
+            elif name in ['Divorced', 'Married', 'Single']:
+                key = 'Marital Status'
+            else:
+                key = name
+            grouped[key] = grouped.get(key, 0) + imp
+        # Sort and normalize
+        items = sorted(grouped.items(), key=lambda x: x[1], reverse=True)
+        total = sum(v for _, v in items)
+        if total == 0:
+            return [("No Data", 100.0)]
+        normalized = [(k, v / total * 100) for k, v in items]
+        return normalized
+    except Exception:
+        return [("No Data", 100.0)]
+
+def group_shap_factors(factors):
+    """
+    Group one-hot encoded SHAP factors into a single value per group.
+    E.g., all Dept_* or Department: Sales become 'Department', etc.
+    """
+    from collections import defaultdict
+    grouped = defaultdict(float)
+    for feature, impact in factors:
+        if ':' in feature:
+            base_name = feature.split(':')[0].strip()
+        elif '_' in feature:
+            base_name = feature.split('_')[0]
+        else:
+            base_name = feature
+        grouped[base_name] += impact
+    return sorted(grouped.items(), key=lambda x: abs(x[1]), reverse=True)
+
+def group_and_map_factors(factors, employee):
+    """
+    Group one-hot encoded SHAP factors and map to human-readable values.
+    Returns a list of dicts: {feature, value, impact}
+    """
+    grouped = defaultdict(float)
+    value_map = {}
+    for feature, impact in factors:
+        # Grouping logic
+        if ':' in feature:
+            base_name, val = feature.split(':', 1)
+            base_name = base_name.strip()
+            val = val.strip()
+            grouped[base_name] += impact
+            value_map[base_name] = val
+        elif '_' in feature:
+            parts = feature.split('_', 1)
+            base_name = parts[0]
+            val = parts[1] if len(parts) > 1 else ''
+            grouped[base_name] += impact
+            value_map[base_name] = val
+        else:
+            base_name = feature
+            grouped[base_name] += impact
+            value_map[base_name] = employee.get(base_name.lower(), 'N/A')
+    # Human-readable mapping
+    feature_name_map = {
+        'Dept': 'Department',
+        'EduField': 'Education Field',
+        'JobRole': 'Job Role',
+        'MaritalStatus': 'Marital Status',
+        'MonthlyIncome': 'Monthly Income',
+        'JobSatisfaction': 'Job Satisfaction',
+        'OverTime': 'Overtime',
+        'YearsAtCompany': 'Years at Company'
+    }
+    # Map grouped feature names to employee dict keys
+    feature_to_employee_key = {
+        'Department': 'department',
+        'Dept': 'department',
+        'Education Field': 'edufield',
+        'EduField': 'edufield',
+        'Job Role': 'position',
+        'JobRole': 'position',
+        'Marital Status': 'marital_status',
+        'Monthly Income': 'salary',
+        'MonthlyIncome': 'salary',
+        'Job Satisfaction': 'job_satisfaction',
+        'JobSatisfaction': 'job_satisfaction',
+        'Overtime': 'overtime',
+        'Years at Company': 'years_at_company',
+        'YearsAtCompany': 'years_at_company',
+        # Add more if needed
+    }
+    key_factors = []
+    for feature, impact in sorted(grouped.items(), key=lambda x: abs(x[1]), reverse=True)[:3]:
+        display_name = feature_name_map.get(feature, feature)
+        # Prefer mapped value, fallback to employee dict using mapped key
+        value = value_map.get(feature)
+        if not value or value == '':
+            emp_key = feature_to_employee_key.get(display_name, feature.lower())
+            value = employee.get(emp_key, 'N/A')
+        key_factors.append({
+            'feature': display_name,
+            'value': value,
+            'impact': impact
+        })
+    return key_factors
+
 @app.route('/get_explanation/<int:employee_id>')
 @login_required
 @role_required('hr')
 def get_explanation(employee_id):
-    """Get SHAP explanation data for an employee."""
     employee = get_employee_by_id(employee_id)
     if not employee:
         return jsonify({'error': 'Employee not found'}), 404
-        
     try:
-        factors = json.loads(employee.get('attrition_factors', '[]'))
+        # Robust JSON loading
+        factors_raw = employee.get('attrition_factors', '[]')
+        if not factors_raw or (isinstance(factors_raw, str) and factors_raw.strip() == ''):
+            factors = []
+        else:
+            try:
+                factors = json.loads(factors_raw)
+            except Exception:
+                factors = []
+        if not isinstance(factors, list):
+            factors = []
+        # Defensive extraction
+        shap_factors = []
+        for item in factors:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                feature, value = item
+                try:
+                    impact = float(value)
+                except Exception:
+                    impact = 0
+                shap_factors.append((feature, impact))
+        # Use top 8 raw factors for display (for frontend bar chart)
+        top_factors = sorted(shap_factors, key=lambda x: abs(x[1]), reverse=True)[:8]
+        # Group and map for human-readable key_factors
+        key_factors = group_and_map_factors(top_factors, employee)
+        # Explanation text
+        # Generate natural language explanation
+        risk_level = 'high risk' if employee.get('attrition_risk') == 1 else 'low risk'
+        probability = float(employee.get('attrition_probability', 0)) * 100
+        name = employee.get('name', 'This employee')
+
+        if key_factors:
+            factor_sentences = [f"{f['feature'].lower()} is {f['value']}" for f in key_factors]
+            explanation = (
+                f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
+                f"Key contributing factors include: " + "; ".join(factor_sentences) + "."
+            )
+        else:
+            explanation = (
+                f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
+                "However, there were no key factors identified."
+            )
         return jsonify({
             'name': employee['name'],
-            'probability': employee.get('attrition_probability', 0),
-            'factors': factors
+            'prediction': 'High Risk' if employee.get('attrition_risk') == 1 else 'Low Risk',
+            'explanation': explanation,
+            'probability': float(employee.get('attrition_probability', 0)),
+            'key_factors': key_factors,
+            'factors': top_factors  # for frontend bar chart if needed
         })
     except Exception as e:
         print(f"Error getting explanation: {e}")
+        traceback.print_exc()  # 🔍 This prints the full stack trace
         return jsonify({'error': 'Failed to get explanation'}), 500
 
 if __name__ == '__main__':

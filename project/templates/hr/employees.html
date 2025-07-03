@@ -34,6 +34,17 @@
     </span>
 </div>
 
+<!-- Feature Importance Summary -->
+<div class="mb-8 bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Attrition Risk Factors Overview</h2>
+    <p class="mb-4 text-gray-600 text-sm">
+        This chart shows which groups of features (like Department, Marital Status, Job Role, etc.) are most important for predicting attrition across all employees. For example, if "Department" has the highest bar, it means the department an employee works in is the most influential factor in the model's attrition predictions.
+    </p>
+    <div class="w-full h-[300px]">
+        <canvas id="featuresChart"></canvas>
+    </div>
+</div>
+
 <!-- Employee Table -->
 <table class="min-w-full bg-white shadow rounded">
     <thead class="bg-gray-200">
@@ -42,6 +53,7 @@
             <th class="py-2 px-4 text-left">Name</th>
             <th class="py-2 px-4 text-left">Position</th>
             <th class="py-2 px-4 text-left">Department</th>
+            <th class="py-2 px-4 text-left">Age</th>
             <th class="py-2 px-4 text-left">Salary</th>
             <th class="py-2 px-4 text-left">Years at Company</th>
             <th class="py-2 px-4 text-left">Attrition</th>
@@ -52,11 +64,34 @@
     </thead>
     <tbody>
         {% for employee in employees %}
-        <tr class="hover:bg-gray-100">
+        <tr class="hover:bg-gray-100 cursor-pointer">
             <td class="py-2 px-4">{{ employee.employee_id }}</td>
-            <td class="py-2 px-4">{{ employee.name }}</td>
+            <td class="py-2 px-4">
+                <a href="javascript:void(0);" class="text-blue-700  hover:underline"
+                   onclick="showEmployeeDetails(
+                    '{{ employee.name }}',
+                    '{{ employee.age }}',
+                    '{{ employee.gender }}',
+                    '{{ employee.dob }}',
+                    '{{ employee.marital_status }}',
+                    '{{ employee.distance }}',
+                    '{{ employee.position }}',
+                    '{{ employee.department }}',
+                    '{{ employee.edufield }}',
+                    '{{ employee.years_at_company }}',
+                    '{{ employee.total_working_years }}',
+                    '{{ employee.salary }}',
+                    '{{ employee.job_satisfaction }}',
+                    '{{ employee.env_satisfaction }}',
+                    '{{ employee.job_involvement }}',
+                    '{{ employee.work_life_balance }}'
+                )">
+                    {{ employee.name }}
+                </a>
+            </td>
             <td class="py-2 px-4">{{ employee.position }}</td>
             <td class="py-2 px-4">{{ employee.department }}</td>
+            <td class="py-2 px-4">{% if employee.age %}{{ employee.age }}{% else %}N/A{% endif %}</td>
             <td class="py-2 px-4">{{ employee.salary }}</td>
             <td class="py-2 px-4">{{ employee.years_at_company }} years</td>
             <td class="py-2 px-4">
@@ -84,10 +119,23 @@
                 {% endif %}
             </td>
             <td class="py-2 px-4">
-                <button onclick="showExplanation({{ employee.employee_id }})" 
-                        class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
-                    <i class="fas fa-info-circle"></i> View Details
-                </button>
+                <details>
+                    <summary class="cursor-pointer text-blue-700 hover:underline">Show</summary>
+                    <div class="mt-2 text-sm text-gray-700">
+                        {{ employee.explanation }}
+                        {% if employee.key_factors %}
+                        <ul class="mt-2 ml-4 list-disc">
+                            {% for factor in employee.key_factors %}
+                            <li>
+                                <span class="font-medium">{{ factor.feature }}:</span>
+                                {{ factor.value }} 
+                                <span class="text-xs text-gray-500">(Impact: {{ "%.3f"|format(factor.impact) }})</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                </details>
             </td>
             <td class="py-2 px-4 text-right">
                 <a href="{{ url_for('edit_employee', employee_id=employee.employee_id) }}" class="text-blue-600 hover:underline">Edit</a>
@@ -97,6 +145,55 @@
         {% endfor %}
     </tbody>
 </table>
+
+<!-- Employee Details Modal -->
+<div id="employeeDetailsModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-4/5 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Employee Details</h3>
+            <button onclick="closeEmployeeModal()" class="text-gray-600 hover:text-gray-800">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <h4 class="font-medium mb-2">Personal Information</h4>
+                <div class="space-y-2">
+                    <p><span class="font-medium">Name:</span> <span id="emp-name"></span></p>
+                    <p><span class="font-medium">Age:</span> <span id="emp-age"></span></p>
+                    <p><span class="font-medium">Gender:</span> <span id="emp-gender"></span></p>
+                    <p><span class="font-medium">DOB:</span> <span id="emp-dob"></span></p>
+                    <p><span class="font-medium">Marital Status:</span> <span id="emp-marital"></span></p>
+                    <p><span class="font-medium">Distance from Home:</span> <span id="emp-distance"></span> km</p>
+                </div>
+            </div>
+            <div>
+                <h4 class="font-medium mb-2">Professional Information</h4>
+                <div class="space-y-2">
+                    <p><span class="font-medium">Position:</span> <span id="emp-position"></span></p>
+                    <p><span class="font-medium">Department:</span> <span id="emp-department"></span></p>
+                    <p><span class="font-medium">Education Field:</span> <span id="emp-edufield"></span></p>
+                    <p><span class="font-medium">Years at Company:</span> <span id="emp-years"></span></p>
+                    <p><span class="font-medium">Total Working Years:</span> <span id="emp-total-years"></span></p>
+                    <p><span class="font-medium">Salary:</span> <span id="emp-salary"></span></p>
+                </div>
+            </div>
+        </div>
+        <div class="border-t pt-4">
+            <h4 class="font-medium mb-2">Satisfaction Metrics</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p><span class="font-medium">Job Satisfaction:</span> <span id="emp-job-satisfaction"></span></p>
+                    <p><span class="font-medium">Environment Satisfaction:</span> <span id="emp-env-satisfaction"></span></p>
+                </div>
+                <div>
+                    <p><span class="font-medium">Job Involvement:</span> <span id="emp-job-involvement"></span></p>
+                    <p><span class="font-medium">Work Life Balance:</span> <span id="emp-work-life"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- SHAP Explanation Modal -->
 <div id="explanationModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
@@ -108,6 +205,11 @@
             </button>
         </div>
         <div class="max-h-[60vh] overflow-y-auto">
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="hidden flex flex-col items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+                <p class="mt-4 text-gray-600">Analyzing employee data...</p>
+            </div>
             <div id="explanationContent">
                 <!-- Content will be populated dynamically -->
             </div>
@@ -115,16 +217,88 @@
     </div>
 </div>
 
-<!-- Add this script block at the end of your content block -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Create chart for feature importance (vertical bar)
+const featureData = {
+    labels: [{% for feature, importance in feature_summary %}"{{ feature | safe }}",{% endfor %}],
+    values: [{% for feature, importance in feature_summary %}{{ importance }},{% endfor %}]
+};
+const ctx = document.getElementById('featuresChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: featureData.labels,
+        datasets: [{
+            label: 'Feature Importance (%)',
+            data: featureData.values,
+            backgroundColor: featureData.values.map(value => 
+                value > 70 ? 'rgba(239, 68, 68, 0.7)' :
+                value > 40 ? 'rgba(245, 158, 11, 0.7)' :
+                'rgba(59, 130, 246, 0.7)'
+            ),
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'x',  // Vertical bar chart
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 12,
+                title: {
+                    display: true,
+                    text: 'Importance (%)'
+                }
+            },
+            x: {
+                ticks: {
+                    autoSkip: false,
+                    callback: function(value) {
+                        // Wrap long labels
+                        const label = this.getLabelForValue(value);
+                        if (label.length > 20) {
+                            return label.substr(0, 20) + '...';
+                        }
+                        return label;
+                    }
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return `${context.formattedValue}% importance`;
+                    }
+                }
+            }
+        }
+    }
+});
+</script>
 <script>
 function showExplanation(employeeId) {
+    // Show modal with loading spinner
+    document.getElementById('explanationModal').classList.remove('hidden');
+    document.getElementById('loadingSpinner').classList.remove('hidden');
+    document.getElementById('explanationContent').innerHTML = '';
+
     fetch(`/get_explanation/${employeeId}`)
         .then(response => response.json())
         .then(data => {
-            const content = document.getElementById('explanationContent');
-            let html = '<div class="space-y-4">';
+            // Hide loading spinner
+            document.getElementById('loadingSpinner').classList.add('hidden');
             
-            // Add employee info
+            const content = document.getElementById('explanationContent');
+            let html = '<div class="space-y-6">';
+            
+            // Employee info
             html += `
                 <div class="p-4 bg-blue-50 rounded">
                     <p class="font-medium">Employee: ${data.name}</p>
@@ -132,14 +306,13 @@ function showExplanation(employeeId) {
                 </div>
             `;
 
-            // Add SHAP values explanation
-            html += '<div class="space-y-2">';
-            data.factors.forEach(factor => {
+            // SHAP values - grouped and diverging bar
+            html += '<div class="space-y-2"><h4 class="font-medium mb-2">Top Contributing Factors</h4>';
+            data.factors.slice(0, 8).forEach(factor => {
                 const [name, value] = factor;
                 const isPositive = value > 0;
-                const barWidth = Math.abs(value) * 100;
-                const barColor = isPositive ? 'bg-red-500' : 'bg-green-500';
-                
+                const barWidth = Math.min(Math.abs(value) * 100, 100);
+                // Diverging bar: left (green, negative), right (red, positive)
                 html += `
                     <div class="p-2">
                         <div class="flex justify-between mb-1">
@@ -148,24 +321,126 @@ function showExplanation(employeeId) {
                                 ${value > 0 ? '+' : ''}${value.toFixed(3)}
                             </span>
                         </div>
-                        <div class="h-2 w-full bg-gray-200 rounded">
-                            <div class="${barColor} h-full rounded" 
-                                 style="width: ${Math.min(Math.abs(barWidth), 100)}%; 
-                                        margin-left: ${isPositive ? '50%' : '0'};
-                                        transform: ${isPositive ? 'none' : 'translateX(-100%)'};">
+                        <div class="relative h-3 w-full bg-gray-200 rounded overflow-hidden">
+                            <div class="absolute left-1/2 top-0 h-full w-0.5 bg-gray-400 opacity-60"></div>
+                            <div class="${isPositive ? 'bg-red-500' : 'bg-green-500'} h-full rounded transition-all duration-300"
+                                 style="
+                                    width: ${barWidth/2}%;
+                                    ${isPositive
+                                        ? 'left:50%; transform:translateX(0);'
+                                        : 'right:50%; left:auto; transform:translateX(-100%);'}
+                                    position: absolute;
+                                 ">
                             </div>
                         </div>
                     </div>
                 `;
             });
-            html += '</div></div>';
+            html += '</div>';
+
+            // Feature Importance
+            html += '<div class="mt-6"><h4 class="font-medium mb-2">Most Important Features</h4>';
+            // Group one-hot encoded features for display
+            const groupedFeatures = {};
+            data.feature_importance.forEach(([feature, score]) => {
+                let group = feature;
+                if (feature.startsWith('Dept_')) group = 'Department';
+                else if (feature.startsWith('EduField_')) group = 'Education Field';
+                else if (feature.startsWith('JobRole_')) group = 'Job Role';
+                else if (['Single', 'Married', 'Divorced'].includes(feature)) group = 'Marital Status';
+                groupedFeatures[group] = (groupedFeatures[group] || 0) + score;
+            });
+            Object.entries(groupedFeatures).forEach(([feature, score]) => {
+                html += `
+                    <div class="bg-gray-50 p-2 mb-2 rounded">
+                        <div class="flex justify-between">
+                            <span>${feature}</span>
+                            <span class="font-medium">${score}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            // What-if Analysis
+            html += '<div class="mt-6"><h4 class="font-medium mb-2">Impact Analysis</h4>';
+            // Group one-hot encoded features for impact analysis display
+            const groupedImpact = {};
+            data.what_if.forEach(scenario => {
+                let group = scenario.feature;
+                if (group.startsWith('Dept_')) group = 'Department';
+                else if (group.startsWith('EduField_')) group = 'Education Field';
+                else if (group.startsWith('JobRole_')) group = 'Job Role';
+                else if (['Single', 'Married', 'Divorced'].includes(group)) group = 'Marital Status';
+                if (!groupedImpact[group]) groupedImpact[group] = [];
+                groupedImpact[group].push(scenario);
+            });
+            Object.entries(groupedImpact).forEach(([feature, scenarios]) => {
+                scenarios.forEach(scenario => {
+                    const impact = scenario.impact * 100;
+                    const isPositive = impact > 0;
+                    html += `
+                        <div class="bg-gray-50 p-2 mb-2 rounded">
+                            <p>${feature}: ${scenario.action} would 
+                               <span class="${isPositive ? 'text-red-600' : 'text-green-600'} font-medium">
+                               ${isPositive ? 'increase' : 'decrease'} risk by ${Math.abs(impact).toFixed(1)}%
+                               </span>
+                            </p>
+                        </div>
+                    `;
+                });
+            });
+            html += '</div>';
+
+            html += '</div>';
             content.innerHTML = html;
             document.getElementById('explanationModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            // Hide loading spinner and show error
+            document.getElementById('loadingSpinner').classList.add('hidden');
+            document.getElementById('explanationContent').innerHTML = `
+                <div class="p-4 bg-red-50 text-red-600 rounded">
+                    <p>Error loading explanation. Please try again.</p>
+                </div>
+            `;
         });
+}
+
+function showEmployeeDetails(name, age, gender, dob, maritalStatus, distance,
+                           position, department, edufield, yearsAtCompany,
+                           totalWorkingYears, salary, jobSatisfaction,
+                           envSatisfaction, jobInvolvement, workLifeBalance) {
+    // Populate modal with employee details
+    document.getElementById('emp-name').textContent = name || 'N/A';
+    document.getElementById('emp-age').textContent = age || 'N/A';
+    document.getElementById('emp-gender').textContent = gender || 'N/A';
+    document.getElementById('emp-dob').textContent = dob || 'N/A';
+    document.getElementById('emp-marital').textContent = maritalStatus || 'N/A';
+    document.getElementById('emp-distance').textContent = distance || 'N/A';
+    
+    document.getElementById('emp-position').textContent = position || 'N/A';
+    document.getElementById('emp-department').textContent = department || 'N/A';
+    document.getElementById('emp-edufield').textContent = edufield || 'N/A';
+    document.getElementById('emp-years').textContent = yearsAtCompany || 'N/A';
+    document.getElementById('emp-total-years').textContent = totalWorkingYears || 'N/A';
+    document.getElementById('emp-salary').textContent = salary || 'N/A';
+    
+    document.getElementById('emp-job-satisfaction').textContent = jobSatisfaction || 'N/A';
+    document.getElementById('emp-env-satisfaction').textContent = envSatisfaction || 'N/A';
+    document.getElementById('emp-job-involvement').textContent = jobInvolvement || 'N/A';
+    document.getElementById('emp-work-life').textContent = workLifeBalance || 'N/A';
+
+    // Show modal
+    document.getElementById('employeeDetailsModal').classList.remove('hidden');
 }
 
 function closeModal() {
     document.getElementById('explanationModal').classList.add('hidden');
+}
+
+function closeEmployeeModal() {
+    document.getElementById('employeeDetailsModal').classList.add('hidden');
 }
 
 // Close modal when clicking outside
@@ -174,7 +449,10 @@ document.getElementById('explanationModal').addEventListener('click', function(e
         closeModal();
     }
 });
+document.getElementById('employeeDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEmployeeModal();
+    }
+});
 </script>
 {% endblock %}
-
-

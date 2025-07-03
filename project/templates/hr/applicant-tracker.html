@@ -25,67 +25,150 @@
 {% endwith %}
 <!-- End flash messages -->
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-    {% for applicant in applicants %}
-    <div class="bg-white rounded-xl shadow p-6 flex flex-col justify-between border border-gray-100 hover:shadow-lg transition">
-        <div>
-            <div class="flex items-center mb-2 justify-between">
-                <div>
-                    <span class="text-lg font-semibold text-gray-800" data-name-{{ applicant.reg_id }}>{{ applicant.name }}</span>
-                    <span class="ml-2 px-2 py-1 rounded text-xs font-semibold 
-                        {% if applicant.status == 'Rejected' %}bg-gray-300 text-gray-600
-                        {% elif applicant.status == 'Hired' %}bg-green-100 text-green-800
-                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
-                        {% if applicant.status == 'Hired' %}
-                            Hired
-                        {% elif applicant.status == 'Rejected' %}
-                            Rejected
-                        {% else %}
-                            Pending
-                        {% endif %}
-                    </span>
-                </div>
-                <div class="flex gap-2">
-                    <!-- Edit Status Icon -->
-                    <button type="button" title="Edit Status" class="p-1 hover:bg-blue-100 rounded"
-                        onclick="revertActionRow({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V17h4"/>
-                        </svg>
-                    </button>
-                    <!-- Delete Icon -->
-                    <button type="button" title="Delete" class="p-1 hover:bg-red-100 rounded"
-                        onclick="openDeleteModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Email:</span> {{ applicant.email }}</div>
-            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Position:</span> {{ applicant.position }}</div>
-            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Department:</span> {{ applicant.department }}</div>
-        </div>
-        <div class="mt-4 flex gap-2" id="action-row-{{ applicant.reg_id }}">
-            {% if not applicant.status %}
-            <!-- Hire Button triggers modal -->
-            <button class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
-                onclick="openHireModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">Hire</button>
-            <form method="post" action="{{ url_for('applicant_action') }}" class="flex-1">
-                <input type="hidden" name="reg_id" value="{{ applicant.reg_id }}">
-                <input type="hidden" name="action" value="reject">
-                <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Reject</button>
-            </form>
-            {% elif applicant.status == 'Hired' or applicant.status == 'Rejected' %}
-            <!-- No actions by default, but will be restored by JS if edit is clicked -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+    <!-- Pending Column -->
+    <div>
+        <h2 class="text-lg font-bold mb-4 text-yellow-700">Pending</h2>
+        <div class="flex flex-col gap-6">
+            {% set found_pending = false %}
+            {% for applicant in applicants %}
+                {% if not applicant.status %}
+                    {% set found_pending = true %}
+                    <!-- Applicant Card -->
+                    <div class="bg-white rounded-xl shadow p-6 flex flex-col justify-between border border-gray-100 hover:shadow-lg transition">
+                        <div>
+                            <div class="flex items-center mb-2 justify-between">
+                                <div>
+                                    <span class="text-lg font-semibold text-gray-800" data-name-{{ applicant.reg_id }}>{{ applicant.name }}</span>
+                                    <span class="ml-2 px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">Pending</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <!-- Delete Icon only for pending -->
+                                    <button type="button" title="Delete" class="p-1 hover:bg-red-100 rounded"
+                                        onclick="openDeleteModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Email:</span> {{ applicant.email }}</div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Position:</span> {{ applicant.position }}</div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Department:</span> {{ applicant.department }}</div>
+                        </div>
+                        <div class="mt-4 flex gap-2" id="action-row-{{ applicant.reg_id }}">
+                            <button class="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
+                                onclick="openHireModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">Hire</button>
+                            <form method="post" action="{{ url_for('applicant_action') }}" class="flex-1">
+                                <input type="hidden" name="reg_id" value="{{ applicant.reg_id }}">
+                                <input type="hidden" name="action" value="reject">
+                                <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Reject</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            {% if not found_pending %}
+                <div class="text-center text-gray-500 py-8">No pending applicants.</div>
             {% endif %}
         </div>
     </div>
-    {% else %}
-    <div class="col-span-3 text-center text-gray-500 py-8">
-        No applicants found.
+    <!-- Hired Column -->
+    <div>
+        <h2 class="text-lg font-bold mb-4 text-green-700">Hired</h2>
+        <div class="flex flex-col gap-6">
+            {% set found_hired = false %}
+            {% for applicant in applicants %}
+                {% if applicant.status == 'Hired' %}
+                    {% set found_hired = true %}
+                    <!-- Applicant Card -->
+                    <div class="bg-white rounded-xl shadow p-6 flex flex-col justify-between border border-gray-100 hover:shadow-lg transition">
+                        <div>
+                            <div class="flex items-center mb-2 justify-between">
+                                <div>
+                                    <span class="text-lg font-semibold text-gray-800" data-name-{{ applicant.reg_id }}>{{ applicant.name }}</span>
+                                    <span class="ml-2 px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">Hired</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <!-- Edit Status Icon -->
+                                    <button type="button" title="Edit Status" class="p-1 hover:bg-blue-100 rounded"
+                                        onclick="revertActionRow({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V17h4"/>
+                                        </svg>
+                                    </button>
+                                    <!-- Delete Icon -->
+                                    <button type="button" title="Delete" class="p-1 hover:bg-red-100 rounded"
+                                        onclick="openDeleteModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Email:</span> {{ applicant.email }}</div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Position:</span> {{ applicant.position }}</div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Department:</span> {{ applicant.department }}</div>
+                        </div>
+                        <div class="mt-4 flex gap-2" id="action-row-{{ applicant.reg_id }}">
+                            <!-- No actions by default, but will be restored by JS if edit is clicked -->
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            {% if not found_hired %}
+                <div class="text-center text-gray-500 py-8">No hired applicants.</div>
+            {% endif %}
+        </div>
     </div>
-    {% endfor %}
+    <!-- Rejected Column -->
+    <div>
+        <h2 class="text-lg font-bold mb-4 text-gray-700">Rejected</h2>
+        <div class="flex flex-col gap-6">
+            {% set found_rejected = false %}
+            {% for applicant in applicants %}
+                {% if applicant.status == 'Rejected' %}
+                    {% set found_rejected = true %}
+                    <!-- Applicant Card -->
+                    <div class="bg-white rounded-xl shadow p-6 flex flex-col justify-between border border-gray-100 hover:shadow-lg transition">
+                        <div>
+                            <div class="flex items-center mb-2 justify-between">
+                                <div>
+                                    <span class="text-lg font-semibold text-gray-800" data-name-{{ applicant.reg_id }}>{{ applicant.name }}</span>
+                                    <span class="ml-2 px-2 py-1 rounded text-xs font-semibold bg-gray-300 text-gray-600">Rejected</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <!-- Edit Status Icon -->
+                                    <button type="button" title="Edit Status" class="p-1 hover:bg-blue-100 rounded"
+                                        onclick="revertActionRow({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V17h4"/>
+                                        </svg>
+                                    </button>
+                                    <!-- Delete Icon -->
+                                    <button type="button" title="Delete" class="p-1 hover:bg-red-100 rounded"
+                                        onclick="openDeleteModal({{ applicant.reg_id }}, '{{ applicant.name|replace("'", '&#39;')|e }}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Email:</span> {{ applicant.email }}</div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Position:</span> {{ applicant.position }}</div>
+                            <div class="text-sm text-gray-500 mb-1"><span class="font-medium text-gray-700">Department:</span> {{ applicant.department }}</div>
+                        </div>
+                        <div class="mt-4 flex gap-2" id="action-row-{{ applicant.reg_id }}">
+                            <!-- No actions by default, but will be restored by JS if edit is clicked -->
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            {% if not found_rejected %}
+                <div class="text-center text-gray-500 py-8">No rejected applicants.</div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 <!-- Hire Modal -->
