@@ -301,29 +301,18 @@ def get_shap_explanations(X):
         List of tuples (feature_name, shap_value) sorted by absolute SHAP value
     """
     try:
-        # Get SHAP values for this specific prediction
         shap_values = explainer.shap_values(X)
-        
-        # For binary classification, get the values for class 1 (attrition)
-        # Fix: Use .tolist() for correct truth value checking
         if isinstance(shap_values, list):
-            # Some SHAP versions return a list of arrays, one per class
             shap_values = shap_values[1]
-        
-        # Ensure shap_values is a 2D array
         if hasattr(shap_values, "shape") and len(shap_values.shape) == 1:
             shap_values = shap_values.reshape(1, -1)
-        
         feature_names = X.columns
-
-        # Fix: Use .tolist() for correct iteration
         shap_values_row = shap_values[0].tolist() if hasattr(shap_values[0], "tolist") else list(shap_values[0])
         feature_shap_pairs = list(zip(feature_names, shap_values_row))
-        
-        # Group one-hot encoded features and their SHAP values
+        print("DEBUG: SHAP pairs:", feature_shap_pairs)  # Debug log
+
         grouped_factors = {}
         for name, value in feature_shap_pairs:
-            # Handle one-hot encoded features
             if name.startswith('Dept_'):
                 base_name = 'Department: ' + name.replace('Dept_', '')
             elif name.startswith('EduField_'):
@@ -333,20 +322,14 @@ def get_shap_explanations(X):
             elif name in ['Divorced', 'Married', 'Single']:
                 base_name = 'Status: ' + name
             else:
-                # Clean up other feature names
                 base_name = name.replace('_', ' ').title()
-            
             grouped_factors[base_name] = value
-
-        # Sort by absolute value for importance
         sorted_factors = sorted(
             grouped_factors.items(),
             key=lambda x: abs(x[1]),
             reverse=True
         )
-        
         return sorted_factors
-        
     except Exception as e:
         print(f"Error getting SHAP explanations: {e}")
         traceback.print_exc()
@@ -805,19 +788,16 @@ def logout():
 def employees():
     employees = get_all_employees()
     feature_summary = calculate_global_feature_importance()
-    # For each employee, add explanation and key_factors for direct template rendering
     for emp in employees:
-        # Defensive: parse factors
         try:
             factors_raw = emp.get('attrition_factors', '[]')
-            if not factors_raw or (isinstance(factors_raw, str) and factors_raw.strip() == ''):
+            try:
+                factors = json.loads(factors_raw)
+            except Exception as ex:
+                print(f"DEBUG: Failed to load factors for emp {emp.get('employee_id')}: {ex}")
                 factors = []
-            else:
-                try:
-                    factors = json.loads(factors_raw)
-                except Exception:
-                    factors = []
             if not isinstance(factors, list):
+                print(f"DEBUG: factors is not a list for emp {emp.get('employee_id')}: {factors}")
                 factors = []
             shap_factors = []
             for item in factors:
@@ -828,6 +808,8 @@ def employees():
                     except Exception:
                         impact = 0
                     shap_factors.append((feature, impact))
+            if not shap_factors:
+                print(f"DEBUG: No shap_factors for emp {emp.get('employee_id')}")
             top_factors = sorted(shap_factors, key=lambda x: abs(x[1]), reverse=True)[:8]
             key_factors = group_and_map_factors(top_factors, emp)
             risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
@@ -840,13 +822,15 @@ def employees():
                     f"Key contributing factors include: " + "; ".join(factor_sentences) + "."
                 )
             else:
+                print(f"DEBUG: No key_factors for emp {emp.get('employee_id')}")
                 explanation = (
                     f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
                     "However, there were no key factors identified."
                 )
             emp['explanation'] = explanation
             emp['key_factors'] = key_factors
-        except Exception:
+        except Exception as ex:
+            print(f"DEBUG: Exception in employees() for emp {emp.get('employee_id')}: {ex}")
             emp['explanation'] = "No explanation available."
             emp['key_factors'] = []
     return render_template(
@@ -1806,18 +1790,15 @@ def get_explanation(employee_id):
     if not employee:
         return jsonify({'error': 'Employee not found'}), 404
     try:
-        # Robust JSON loading
         factors_raw = employee.get('attrition_factors', '[]')
-        if not factors_raw or (isinstance(factors_raw, str) and factors_raw.strip() == ''):
+        try:
+            factors = json.loads(factors_raw)
+        except Exception as ex:
+            print(f"DEBUG: Failed to load factors for emp {employee_id}: {ex}")
             factors = []
-        else:
-            try:
-                factors = json.loads(factors_raw)
-            except Exception:
-                factors = []
         if not isinstance(factors, list):
+            print(f"DEBUG: factors is not a list for emp {employee_id}: {factors}")
             factors = []
-        # Defensive extraction
         shap_factors = []
         for item in factors:
             if isinstance(item, (list, tuple)) and len(item) == 2:
@@ -1827,16 +1808,13 @@ def get_explanation(employee_id):
                 except Exception:
                     impact = 0
                 shap_factors.append((feature, impact))
-        # Use top 8 raw factors for display (for frontend bar chart)
+        if not shap_factors:
+            print(f"DEBUG: No shap_factors for emp {employee_id}")
         top_factors = sorted(shap_factors, key=lambda x: abs(x[1]), reverse=True)[:8]
-        # Group and map for human-readable key_factors
         key_factors = group_and_map_factors(top_factors, employee)
-        # Explanation text
-        # Generate natural language explanation
         risk_level = 'high risk' if employee.get('attrition_risk') == 1 else 'low risk'
         probability = float(employee.get('attrition_probability', 0)) * 100
         name = employee.get('name', 'This employee')
-
         if key_factors:
             factor_sentences = [f"{f['feature'].lower()} is {f['value']}" for f in key_factors]
             explanation = (
@@ -1844,6 +1822,7 @@ def get_explanation(employee_id):
                 f"Key contributing factors include: " + "; ".join(factor_sentences) + "."
             )
         else:
+            print(f"DEBUG: No key_factors for emp {employee_id}")
             explanation = (
                 f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
                 "However, there were no key factors identified."
@@ -1854,11 +1833,11 @@ def get_explanation(employee_id):
             'explanation': explanation,
             'probability': float(employee.get('attrition_probability', 0)),
             'key_factors': key_factors,
-            'factors': top_factors  # for frontend bar chart if needed
+            'factors': top_factors
         })
     except Exception as e:
         print(f"Error getting explanation: {e}")
-        traceback.print_exc()  # 🔍 This prints the full stack trace
+        traceback.print_exc()
         return jsonify({'error': 'Failed to get explanation'}), 500
 
 if __name__ == '__main__':
