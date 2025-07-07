@@ -13,7 +13,6 @@ from markupsafe import Markup
 import re
 import json
 from collections import defaultdict
-import shap
 import numpy as np
 import traceback  # For detailed error logging
 
@@ -36,52 +35,6 @@ with open(MODEL_PATH, 'rb') as f:
 with open(ENCODER_PATH, 'rb') as f:
     encoder_data = pickle.load(f)
     model_columns = encoder_data['columns']
-
-# Load training data for SHAP background dataset
-def load_training_data():
-    """Load and preprocess training data for SHAP background dataset."""
-    try:
-        # Load the training dataset
-        training_data = pd.read_csv(TRAINING_DATA_PATH)
-        
-        # Apply the same preprocessing as used during training
-        # This should match the preprocessing in your training script
-        processed_data = preprocess_training_data(training_data)
-        
-        # Use a sample of the data as background (SHAP works well with 100-1000 samples)
-        background_data = processed_data.sample(min(500, len(processed_data)), random_state=42)
-        
-        return background_data
-    except Exception as e:
-        print(f"Warning: Could not load training data for SHAP background: {e}")
-        return None
-
-def preprocess_training_data(df):
-    """Preprocess training data to match the model input format."""
-    # This should match your training preprocessing
-    # For now, using a simplified version - you may need to adjust based on your actual training preprocessing
-    
-    # Handle missing values
-    df = df.fillna(0)
-    
-    # Ensure all expected columns are present
-    for col in model_columns:
-        if col not in df.columns:
-            df[col] = 0
-    
-    # Select only the columns expected by the model
-    df = df[model_columns]
-    
-    return df
-
-# Initialize SHAP explainer
-background_data = load_training_data()
-if background_data is not None:
-    # Create TreeExplainer with background data for more accurate SHAP values
-    explainer = shap.TreeExplainer(model, background_data, feature_perturbation="interventional")
-else:
-    # Fallback to tree_path_dependent if no background data
-    explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
 
 # Leave day limits
 LEAVE_LIMITS = {
@@ -260,81 +213,6 @@ def preprocess_employee_data(raw_data):
 
     return df
 
-def group_one_hot_features(feature_names, feature_importance):
-    """Group one-hot encoded features and sum their importance values.
-    
-    Args:
-        feature_names: List of feature names from the model
-        feature_importance: List of importance values from the model
-        
-    Returns:
-        List of tuples (feature_name, importance) sorted by importance
-    """
-    grouped_factors = {}
-    for name, importance in zip(feature_names, feature_importance):
-        # Handle one-hot encoded features
-        if name.startswith('Dept_'):
-            base_name = 'Department'
-        elif name.startswith('EduField_'):
-            base_name = 'Education Field'
-        elif name.startswith('JobRole_'):
-            base_name = 'Job Role'
-        elif name in ['Divorced', 'Married', 'Single']:
-            base_name = 'Marital Status'
-        else:
-            base_name = name
-
-        if base_name not in grouped_factors:
-            grouped_factors[base_name] = 0
-        grouped_factors[base_name] += importance
-
-    # Convert to sorted list
-    return sorted(grouped_factors.items(), key=lambda x: x[1], reverse=True)
-
-def get_shap_explanations(X):
-    """Get SHAP values for a single employee's data.
-    
-    Args:
-        X: Preprocessed employee data as DataFrame
-        
-    Returns:
-        List of tuples (feature_name, shap_value) sorted by absolute SHAP value
-    """
-    try:
-        shap_values = explainer.shap_values(X)
-        if isinstance(shap_values, list):
-            shap_values = shap_values[1]
-        if hasattr(shap_values, "shape") and len(shap_values.shape) == 1:
-            shap_values = shap_values.reshape(1, -1)
-        feature_names = X.columns
-        shap_values_row = shap_values[0].tolist() if hasattr(shap_values[0], "tolist") else list(shap_values[0])
-        feature_shap_pairs = list(zip(feature_names, shap_values_row))
-        print("DEBUG: SHAP pairs:", feature_shap_pairs)  # Debug log
-
-        grouped_factors = {}
-        for name, value in feature_shap_pairs:
-            if name.startswith('Dept_'):
-                base_name = 'Department: ' + name.replace('Dept_', '')
-            elif name.startswith('EduField_'):
-                base_name = 'Education: ' + name.replace('EduField_', '')
-            elif name.startswith('JobRole_'):
-                base_name = 'Position: ' + name.replace('JobRole_', '')
-            elif name in ['Divorced', 'Married', 'Single']:
-                base_name = 'Status: ' + name
-            else:
-                base_name = name.replace('_', ' ').title()
-            grouped_factors[base_name] = value
-        sorted_factors = sorted(
-            grouped_factors.items(),
-            key=lambda x: abs(x[1]),
-            reverse=True
-        )
-        return sorted_factors
-    except Exception as e:
-        print(f"Error getting SHAP explanations: {e}")
-        traceback.print_exc()
-        return []
-
 def predict_attrition_for_employee(employee_id):
     emp = get_employee_by_id(employee_id)
     if not emp:
@@ -342,22 +220,13 @@ def predict_attrition_for_employee(employee_id):
     X = preprocess_employee_data(emp)
     prediction = int(model.predict(X)[0])
     
-    # Get SHAP-based feature explanations for this specific employee
-    all_factors = get_shap_explanations(X)
-    
-    # Also get prediction probability for more detailed insights
-    prediction_proba = model.predict_proba(X)[0]
-    attrition_probability = float(prediction_proba[1] if len(prediction_proba) > 1 else prediction_proba[0])
-    
     connection = get_db_connection()
     cursor = connection.cursor()
     cursor.execute("""
         UPDATE employees
-        SET attrition_risk = %s,
-            attrition_factors = %s,
-            attrition_probability = %s
+        SET attrition_risk = %s
         WHERE employee_id = %s
-    """, (prediction, json.dumps(all_factors), attrition_probability, employee_id))
+    """, (prediction, employee_id))
     connection.commit()
     cursor.close()
     connection.close()
@@ -370,21 +239,11 @@ def predict_attrition_for_all():
     for emp in employees:
         X = preprocess_employee_data(emp)
         prediction = int(model.predict(X)[0])
-        
-        # Get SHAP-based feature explanations for this specific employee
-        all_factors = get_shap_explanations(X)
-        
-        # Also get prediction probability for more detailed insights
-        prediction_proba = model.predict_proba(X)[0]
-        attrition_probability = float(prediction_proba[1] if len(prediction_proba) > 1 else prediction_proba[0])
-        
         cursor.execute("""
             UPDATE employees
-            SET attrition_risk = %s,
-                attrition_factors = %s,
-                attrition_probability = %s
+            SET attrition_risk = %s
             WHERE employee_id = %s
-        """, (prediction, json.dumps(all_factors), attrition_probability, emp['employee_id']))
+        """, (prediction, emp['employee_id']))
     connection.commit()
     cursor.close()
     connection.close()
@@ -743,7 +602,6 @@ def dashboard():
     attrition_overtime_labels = [row['overtime'] or 'Unknown' for row in attrition_overtime]
     attrition_overtime_data = [row['count'] for row in attrition_overtime]
 
-    # ...existing code...
     return render_template('hr/dashboard.html',
                         attrition_rate=attrition_rate,
                         total_employees=total_employees,
@@ -787,50 +645,45 @@ def logout():
 @role_required('hr')
 def employees():
     employees = get_all_employees()
-    feature_summary = calculate_global_feature_importance()
+
+    # Calculate feature importance using model.feature_importances_
+    try:
+        importances = model.feature_importances_
+        feature_names = encoder_data['columns']
+        grouped = {}
+        for name, imp in zip(feature_names, importances):
+            if name.startswith('Dept_'):
+                key = 'Department'
+            elif name.startswith('EduField_'):
+                key = 'Education Field'
+            elif name.startswith('JobRole_'):
+                key = 'Job Role'
+            elif name in ['Divorced', 'Married', 'Single']:
+                key = 'Marital Status'
+            else:
+                key = name
+            grouped[key] = grouped.get(key, 0) + imp
+        # Sort and normalize
+        items = sorted(grouped.items(), key=lambda x: x[1], reverse=True)
+        total = sum(v for _, v in items)
+        if total == 0:
+            feature_summary = [("No Data", 100.0)]
+        else:
+            feature_summary = [(k, v / total * 100) for k, v in items]
+    except Exception:
+        feature_summary = [("No Data", 100.0)]
+
     for emp in employees:
         try:
-            factors_raw = emp.get('attrition_factors', '[]')
-            try:
-                factors = json.loads(factors_raw)
-            except Exception as ex:
-                print(f"DEBUG: Failed to load factors for emp {emp.get('employee_id')}: {ex}")
-                factors = []
-            if not isinstance(factors, list):
-                print(f"DEBUG: factors is not a list for emp {emp.get('employee_id')}: {factors}")
-                factors = []
-            shap_factors = []
-            for item in factors:
-                if isinstance(item, (list, tuple)) and len(item) == 2:
-                    feature, value = item
-                    try:
-                        impact = float(value)
-                    except Exception:
-                        impact = 0
-                    shap_factors.append((feature, impact))
-            if not shap_factors:
-                print(f"DEBUG: No shap_factors for emp {emp.get('employee_id')}")
-            top_factors = sorted(shap_factors, key=lambda x: abs(x[1]), reverse=True)[:8]
-            key_factors = group_and_map_factors(top_factors, emp)
             risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
-            probability = float(emp.get('attrition_probability', 0)) * 100
+            probability = float(emp.get('attrition_probability', 0)) * 100 if emp.get('attrition_probability') else 0
             name = emp.get('name', 'This employee')
-            if key_factors:
-                factor_sentences = [f"{f['feature'].lower()} is {f['value']}" for f in key_factors]
-                explanation = (
-                    f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
-                    f"Key contributing factors include: " + "; ".join(factor_sentences) + "."
-                )
-            else:
-                print(f"DEBUG: No key_factors for emp {emp.get('employee_id')}")
-                explanation = (
-                    f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
-                    "However, there were no key factors identified."
-                )
+            explanation = (
+                f"{name} is predicted to be at {risk_level} of attrition."
+            )
             emp['explanation'] = explanation
-            emp['key_factors'] = key_factors
+            emp['key_factors'] = []
         except Exception as ex:
-            print(f"DEBUG: Exception in employees() for emp {emp.get('employee_id')}: {ex}")
             emp['explanation'] = "No explanation available."
             emp['key_factors'] = []
     return render_template(
@@ -1343,26 +1196,6 @@ def predict_attrition():
     cursor.execute("SELECT * FROM employees WHERE attrition_risk = 1")
     high_risk_employees = cursor.fetchall()
 
-    # Aggregate factors
-    factor_totals = defaultdict(float)
-    for emp in high_risk_employees:
-        factors = emp.get('attrition_factors')
-        if factors:
-            try:
-                factor_list = json.loads(factors)
-                for factor, importance in factor_list:
-                    factor_totals[factor] += importance
-            except (json.JSONDecodeError, TypeError):
-                continue
-
-    # Sort and normalize
-    sorted_factors = sorted(factor_totals.items(), key=lambda x: x[1], reverse=True)
-    total_importance = sum(val for _, val in sorted_factors) or 1
-    factors_chart_data = {
-        "labels": [str(f) for f, _ in sorted_factors],
-        "data": [round((v / total_importance) * 100, 2) for _, v in sorted_factors]
-    }
-
     # Attrition by Gender
     cursor.execute("""
         SELECT gender, COUNT(*) as count
@@ -1462,7 +1295,6 @@ def predict_attrition():
     return render_template(
         "hr/predict-attrition.html",
         employees=high_risk_employees,
-        factors_chart_data=factors_chart_data,
         attrition_chart_data=attrition_chart_data
     )
 
@@ -1628,31 +1460,23 @@ def ensure_attrition_factors_column():
     connection = get_db_connection()
     cursor = connection.cursor()
     try:
-        # Check if attrition_factors column exists
-        cursor.execute("SHOW COLUMNS FROM employees LIKE 'attrition_factors'")
-        if not cursor.fetchone():
-            # Add the column if it doesn't exist
-            cursor.execute("ALTER TABLE employees ADD COLUMN attrition_factors JSON")
-            connection.commit()
-        
-        # Check if attrition_probability column exists
-        cursor.execute("SHOW COLUMNS FROM employees LIKE 'attrition_probability'")
-        if not cursor.fetchone():
-            # Add the column if it doesn't exist
-            cursor.execute("ALTER TABLE employees ADD COLUMN attrition_probability DECIMAL(5,4)")
-            connection.commit()
+        # REMOVE: attrition_factors and attrition_probability columns
+        # cursor.execute("SHOW COLUMNS FROM employees LIKE 'attrition_factors'")
+        # if not cursor.fetchone():
+        #     cursor.execute("ALTER TABLE employees ADD COLUMN attrition_factors JSON")
+        #     connection.commit()
+        # cursor.execute("SHOW COLUMNS FROM employees LIKE 'attrition_probability'")
+        # if not cursor.fetchone():
+        #     cursor.execute("ALTER TABLE employees ADD COLUMN attrition_probability DECIMAL(5,4)")
+        #     connection.commit()
+        pass
     finally:
         cursor.close()
         connection.close()
 
 def update_employee_shap_explanations(employee_id):
-    """Update SHAP explanations for an employee after their data changes."""
-    try:
-        predict_attrition_for_employee(employee_id)
-        return True
-    except Exception as e:
-        print(f"Error updating SHAP explanations for employee {employee_id}: {e}")
-        return False
+    """Stub: SHAP explanations removed."""
+    return True
 
 def flash_attrition_status(employee_id):
     """Flash a message about the employee's attrition status after prediction."""
@@ -1662,183 +1486,18 @@ def flash_attrition_status(employee_id):
     elif emp and emp.get('attrition_risk') == 0:
         flash(f'{emp["name"]} is at low risk of attrition.', 'success')
 
-# Call this when the app starts
-ensure_attrition_factors_column()
-
-def calculate_global_feature_importance():
-    """
-    Calculate global feature importance using the model's built-in feature_importances_,
-    grouping one-hot encoded features (Dept_, EduField_, JobRole_, MaritalStatus).
-    """
-    try:
-        importances = model.feature_importances_
-        feature_names = encoder_data['columns']
-        grouped = {}
-        for name, imp in zip(feature_names, importances):
-            if name.startswith('Dept_'):
-                key = 'Department'
-            elif name.startswith('EduField_'):
-                key = 'Education Field'
-            elif name.startswith('JobRole_'):
-                key = 'Job Role'
-            elif name in ['Divorced', 'Married', 'Single']:
-                key = 'Marital Status'
-            else:
-                key = name
-            grouped[key] = grouped.get(key, 0) + imp
-        # Sort and normalize
-        items = sorted(grouped.items(), key=lambda x: x[1], reverse=True)
-        total = sum(v for _, v in items)
-        if total == 0:
-            return [("No Data", 100.0)]
-        normalized = [(k, v / total * 100) for k, v in items]
-        return normalized
-    except Exception:
-        return [("No Data", 100.0)]
-
-def group_shap_factors(factors):
-    """
-    Group one-hot encoded SHAP factors into a single value per group.
-    E.g., all Dept_* or Department: Sales become 'Department', etc.
-    """
-    from collections import defaultdict
-    grouped = defaultdict(float)
-    for feature, impact in factors:
-        if ':' in feature:
-            base_name = feature.split(':')[0].strip()
-        elif '_' in feature:
-            base_name = feature.split('_')[0]
-        else:
-            base_name = feature
-        grouped[base_name] += impact
-    return sorted(grouped.items(), key=lambda x: abs(x[1]), reverse=True)
-
-def group_and_map_factors(factors, employee):
-    """
-    Group one-hot encoded SHAP factors and map to human-readable values.
-    Returns a list of dicts: {feature, value, impact}
-    """
-    grouped = defaultdict(float)
-    value_map = {}
-    for feature, impact in factors:
-        # Grouping logic
-        if ':' in feature:
-            base_name, val = feature.split(':', 1)
-            base_name = base_name.strip()
-            val = val.strip()
-            grouped[base_name] += impact
-            value_map[base_name] = val
-        elif '_' in feature:
-            parts = feature.split('_', 1)
-            base_name = parts[0]
-            val = parts[1] if len(parts) > 1 else ''
-            grouped[base_name] += impact
-            value_map[base_name] = val
-        else:
-            base_name = feature
-            grouped[base_name] += impact
-            value_map[base_name] = employee.get(base_name.lower(), 'N/A')
-    # Human-readable mapping
-    feature_name_map = {
-        'Dept': 'Department',
-        'EduField': 'Education Field',
-        'JobRole': 'Job Role',
-        'MaritalStatus': 'Marital Status',
-        'MonthlyIncome': 'Monthly Income',
-        'JobSatisfaction': 'Job Satisfaction',
-        'OverTime': 'Overtime',
-        'YearsAtCompany': 'Years at Company'
-    }
-    # Map grouped feature names to employee dict keys
-    feature_to_employee_key = {
-        'Department': 'department',
-        'Dept': 'department',
-        'Education Field': 'edufield',
-        'EduField': 'edufield',
-        'Job Role': 'position',
-        'JobRole': 'position',
-        'Marital Status': 'marital_status',
-        'Monthly Income': 'salary',
-        'MonthlyIncome': 'salary',
-        'Job Satisfaction': 'job_satisfaction',
-        'JobSatisfaction': 'job_satisfaction',
-        'Overtime': 'overtime',
-        'Years at Company': 'years_at_company',
-        'YearsAtCompany': 'years_at_company',
-        # Add more if needed
-    }
-    key_factors = []
-    for feature, impact in sorted(grouped.items(), key=lambda x: abs(x[1]), reverse=True)[:3]:
-        display_name = feature_name_map.get(feature, feature)
-        # Prefer mapped value, fallback to employee dict using mapped key
-        value = value_map.get(feature)
-        if not value or value == '':
-            emp_key = feature_to_employee_key.get(display_name, feature.lower())
-            value = employee.get(emp_key, 'N/A')
-        key_factors.append({
-            'feature': display_name,
-            'value': value,
-            'impact': impact
-        })
-    return key_factors
-
-@app.route('/get_explanation/<int:employee_id>')
-@login_required
-@role_required('hr')
-def get_explanation(employee_id):
-    employee = get_employee_by_id(employee_id)
-    if not employee:
-        return jsonify({'error': 'Employee not found'}), 404
-    try:
-        factors_raw = employee.get('attrition_factors', '[]')
-        try:
-            factors = json.loads(factors_raw)
-        except Exception as ex:
-            print(f"DEBUG: Failed to load factors for emp {employee_id}: {ex}")
-            factors = []
-        if not isinstance(factors, list):
-            print(f"DEBUG: factors is not a list for emp {employee_id}: {factors}")
-            factors = []
-        shap_factors = []
-        for item in factors:
-            if isinstance(item, (list, tuple)) and len(item) == 2:
-                feature, value = item
-                try:
-                    impact = float(value)
-                except Exception:
-                    impact = 0
-                shap_factors.append((feature, impact))
-        if not shap_factors:
-            print(f"DEBUG: No shap_factors for emp {employee_id}")
-        top_factors = sorted(shap_factors, key=lambda x: abs(x[1]), reverse=True)[:8]
-        key_factors = group_and_map_factors(top_factors, employee)
-        risk_level = 'high risk' if employee.get('attrition_risk') == 1 else 'low risk'
-        probability = float(employee.get('attrition_probability', 0)) * 100
-        name = employee.get('name', 'This employee')
-        if key_factors:
-            factor_sentences = [f"{f['feature'].lower()} is {f['value']}" for f in key_factors]
-            explanation = (
-                f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
-                f"Key contributing factors include: " + "; ".join(factor_sentences) + "."
-            )
-        else:
-            print(f"DEBUG: No key_factors for emp {employee_id}")
-            explanation = (
-                f"{name} is predicted to be at {risk_level} of attrition with a probability of {probability:.1f}%. "
-                "However, there were no key factors identified."
-            )
-        return jsonify({
-            'name': employee['name'],
-            'prediction': 'High Risk' if employee.get('attrition_risk') == 1 else 'Low Risk',
-            'explanation': explanation,
-            'probability': float(employee.get('attrition_probability', 0)),
-            'key_factors': key_factors,
-            'factors': top_factors
-        })
-    except Exception as e:
-        print(f"Error getting explanation: {e}")
-        traceback.print_exc()
-        return jsonify({'error': 'Failed to get explanation'}), 500
+# REMOVE: calculate_global_feature_importance, group_shap_factors, group_and_map_factors, get_explanation endpoint
+# def calculate_global_feature_importance():
+#     ...
+# def group_shap_factors(factors):
+#     ...
+# def group_and_map_factors(factors, employee):
+#     ...
+# @app.route('/get_explanation/<int:employee_id>')
+# @login_required
+# @role_required('hr')
+# def get_explanation(employee_id):
+#     ...
 
 if __name__ == '__main__':
     app.run(debug=True)

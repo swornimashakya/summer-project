@@ -36,9 +36,9 @@
 
 <!-- Feature Importance Summary -->
 <div class="mb-8 bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold mb-4">Attrition Risk Factors Overview</h2>
+    <h2 class="text-lg font-semibold mb-4">Feature Importance Overview</h2>
     <p class="mb-4 text-gray-600 text-sm">
-        This chart shows which groups of features (like Department, Marital Status, Job Role, etc.) are most important for predicting attrition across all employees. For example, if "Department" has the highest bar, it means the department an employee works in is the most influential factor in the model's attrition predictions.
+        This chart shows which groups of features (like Department, Marital Status, Job Role, etc.) are most important for predicting attrition across all employees, based on the model's feature importances.
     </p>
     <div class="w-full h-[300px]">
         <canvas id="featuresChart"></canvas>
@@ -119,23 +119,10 @@
                 {% endif %}
             </td>
             <td class="py-2 px-4">
-                <details>
-                    <summary class="cursor-pointer text-blue-700 hover:underline">Show</summary>
-                    <div class="mt-2 text-sm text-gray-700">
-                        {{ employee.explanation }}
-                        {% if employee.key_factors %}
-                        <ul class="mt-2 ml-4 list-disc">
-                            {% for factor in employee.key_factors %}
-                            <li>
-                                <span class="font-medium">{{ factor.feature }}:</span>
-                                {{ factor.value }} 
-                                <span class="text-xs text-gray-500">(Impact: {{ "%.3f"|format(factor.impact) }})</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
-                    </div>
-                </details>
+                <!-- Keep Explanation column, but only show the explanation text -->
+                <div class="mt-2 text-sm text-gray-700">
+                    {{ employee.explanation }}
+                </div>
             </td>
             <td class="py-2 px-4 text-right">
                 <a href="{{ url_for('edit_employee', employee_id=employee.employee_id) }}" class="text-blue-600 hover:underline">Edit</a>
@@ -195,34 +182,11 @@
     </div>
 </div>
 
-<!-- SHAP Explanation Modal -->
-<div id="explanationModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-4/5 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold">Attrition Risk Explanation</h3>
-            <button onclick="closeModal()" class="text-gray-600 hover:text-gray-800">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="max-h-[60vh] overflow-y-auto">
-            <!-- Loading Spinner -->
-            <div id="loadingSpinner" class="hidden flex flex-col items-center justify-center py-12">
-                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-                <p class="mt-4 text-gray-600">Analyzing employee data...</p>
-            </div>
-            <div id="explanationContent">
-                <!-- Content will be populated dynamically -->
-            </div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Create chart for feature importance (vertical bar)
 const featureData = {
     labels: [{% for feature, importance in feature_summary %}"{{ feature | safe }}",{% endfor %}],
-    values: [{% for feature, importance in feature_summary %}{{ importance }},{% endfor %}]
+    values: [{% for feature, importance in feature_summary %}{{ importance|round(2) }},{% endfor %}]
 };
 const ctx = document.getElementById('featuresChart').getContext('2d');
 new Chart(ctx, {
@@ -243,11 +207,10 @@ new Chart(ctx, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        indexAxis: 'x',  // Vertical bar chart
+        indexAxis: 'x',
         scales: {
             y: {
                 beginAtZero: true,
-                max: 12,
                 title: {
                     display: true,
                     text: 'Importance (%)'
@@ -257,7 +220,6 @@ new Chart(ctx, {
                 ticks: {
                     autoSkip: false,
                     callback: function(value) {
-                        // Wrap long labels
                         const label = this.getLabelForValue(value);
                         if (label.length > 20) {
                             return label.substr(0, 20) + '...';
@@ -283,130 +245,6 @@ new Chart(ctx, {
 });
 </script>
 <script>
-function showExplanation(employeeId) {
-    // Show modal with loading spinner
-    document.getElementById('explanationModal').classList.remove('hidden');
-    document.getElementById('loadingSpinner').classList.remove('hidden');
-    document.getElementById('explanationContent').innerHTML = '';
-
-    fetch(`/get_explanation/${employeeId}`)
-        .then(response => response.json())
-        .then(data => {
-            // Hide loading spinner
-            document.getElementById('loadingSpinner').classList.add('hidden');
-            
-            const content = document.getElementById('explanationContent');
-            let html = '<div class="space-y-6">';
-            
-            // Employee info
-            html += `
-                <div class="p-4 bg-blue-50 rounded">
-                    <p class="font-medium">Employee: ${data.name}</p>
-                    <p class="text-sm">Attrition Probability: ${(data.probability * 100).toFixed(1)}%</p>
-                </div>
-            `;
-
-            // SHAP values - grouped and diverging bar
-            html += '<div class="space-y-2"><h4 class="font-medium mb-2">Top Contributing Factors</h4>';
-            data.factors.slice(0, 8).forEach(factor => {
-                const [name, value] = factor;
-                const isPositive = value > 0;
-                const barWidth = Math.min(Math.abs(value) * 100, 100);
-                // Diverging bar: left (green, negative), right (red, positive)
-                html += `
-                    <div class="p-2">
-                        <div class="flex justify-between mb-1">
-                            <span class="text-sm font-medium">${name}</span>
-                            <span class="text-sm ${isPositive ? 'text-red-600' : 'text-green-600'}">
-                                ${value > 0 ? '+' : ''}${value.toFixed(3)}
-                            </span>
-                        </div>
-                        <div class="relative h-3 w-full bg-gray-200 rounded overflow-hidden">
-                            <div class="absolute left-1/2 top-0 h-full w-0.5 bg-gray-400 opacity-60"></div>
-                            <div class="${isPositive ? 'bg-red-500' : 'bg-green-500'} h-full rounded transition-all duration-300"
-                                 style="
-                                    width: ${barWidth/2}%;
-                                    ${isPositive
-                                        ? 'left:50%; transform:translateX(0);'
-                                        : 'right:50%; left:auto; transform:translateX(-100%);'}
-                                    position: absolute;
-                                 ">
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-
-            // Feature Importance
-            html += '<div class="mt-6"><h4 class="font-medium mb-2">Most Important Features</h4>';
-            // Group one-hot encoded features for display
-            const groupedFeatures = {};
-            data.feature_importance.forEach(([feature, score]) => {
-                let group = feature;
-                if (feature.startsWith('Dept_')) group = 'Department';
-                else if (feature.startsWith('EduField_')) group = 'Education Field';
-                else if (feature.startsWith('JobRole_')) group = 'Job Role';
-                else if (['Single', 'Married', 'Divorced'].includes(feature)) group = 'Marital Status';
-                groupedFeatures[group] = (groupedFeatures[group] || 0) + score;
-            });
-            Object.entries(groupedFeatures).forEach(([feature, score]) => {
-                html += `
-                    <div class="bg-gray-50 p-2 mb-2 rounded">
-                        <div class="flex justify-between">
-                            <span>${feature}</span>
-                            <span class="font-medium">${score}%</span>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-
-            // What-if Analysis
-            html += '<div class="mt-6"><h4 class="font-medium mb-2">Impact Analysis</h4>';
-            // Group one-hot encoded features for impact analysis display
-            const groupedImpact = {};
-            data.what_if.forEach(scenario => {
-                let group = scenario.feature;
-                if (group.startsWith('Dept_')) group = 'Department';
-                else if (group.startsWith('EduField_')) group = 'Education Field';
-                else if (group.startsWith('JobRole_')) group = 'Job Role';
-                else if (['Single', 'Married', 'Divorced'].includes(group)) group = 'Marital Status';
-                if (!groupedImpact[group]) groupedImpact[group] = [];
-                groupedImpact[group].push(scenario);
-            });
-            Object.entries(groupedImpact).forEach(([feature, scenarios]) => {
-                scenarios.forEach(scenario => {
-                    const impact = scenario.impact * 100;
-                    const isPositive = impact > 0;
-                    html += `
-                        <div class="bg-gray-50 p-2 mb-2 rounded">
-                            <p>${feature}: ${scenario.action} would 
-                               <span class="${isPositive ? 'text-red-600' : 'text-green-600'} font-medium">
-                               ${isPositive ? 'increase' : 'decrease'} risk by ${Math.abs(impact).toFixed(1)}%
-                               </span>
-                            </p>
-                        </div>
-                    `;
-                });
-            });
-            html += '</div>';
-
-            html += '</div>';
-            content.innerHTML = html;
-            document.getElementById('explanationModal').classList.remove('hidden');
-        })
-        .catch(error => {
-            // Hide loading spinner and show error
-            document.getElementById('loadingSpinner').classList.add('hidden');
-            document.getElementById('explanationContent').innerHTML = `
-                <div class="p-4 bg-red-50 text-red-600 rounded">
-                    <p>Error loading explanation. Please try again.</p>
-                </div>
-            `;
-        });
-}
-
 function showEmployeeDetails(name, age, gender, dob, maritalStatus, distance,
                            position, department, edufield, yearsAtCompany,
                            totalWorkingYears, salary, jobSatisfaction,
@@ -435,20 +273,11 @@ function showEmployeeDetails(name, age, gender, dob, maritalStatus, distance,
     document.getElementById('employeeDetailsModal').classList.remove('hidden');
 }
 
-function closeModal() {
-    document.getElementById('explanationModal').classList.add('hidden');
-}
-
 function closeEmployeeModal() {
     document.getElementById('employeeDetailsModal').classList.add('hidden');
 }
 
 // Close modal when clicking outside
-document.getElementById('explanationModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
 document.getElementById('employeeDetailsModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeEmployeeModal();

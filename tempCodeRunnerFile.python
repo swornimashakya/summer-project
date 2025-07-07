@@ -1,28 +1,109 @@
-import mysql.connector
-import bcrypt
+import pandas as pd
+import numpy as np
+import random
 
-def get_db_connection():
-    return mysql.connector.connect(
-        user='root',
-        password='12345',
-        host='localhost',
-        database='employee_db'
-    )
-
-connection = get_db_connection()
-cursor = connection.cursor(dictionary=True)
-
-cursor.execute("SELECT id, password FROM users")
-users = cursor.fetchall()
-
-for user in users:
-    plaintext = user['password']
-    hashed = bcrypt.hashpw(plaintext.encode('utf-8'), bcrypt.gensalt())
+def generate_synthetic_data(num_records=1000):
+    data = defaultdict(list)
     
-    cursor.execute("UPDATE users SET password = %s WHERE id = %s", (hashed.decode('utf-8'), user['id']))
+    # Define distributions for each column
+    departments = ['Sales', 'Research & Development', 'Human Resources']
+    education_fields = ['Life Sciences', 'Medical', 'Marketing', 'Technical Degree', 'Other', 'Human Resources']
+    job_roles = ['Sales Executive', 'Research Scientist', 'Laboratory Technician', 
+                'Manufacturing Director', 'Healthcare Representative', 'Manager',
+                'Sales Representative', 'Research Director', 'Human Resources']
+    marital_statuses = ['Single', 'Married', 'Divorced']
+    business_travel = ['Travel_Rarely', 'Travel_Frequently', 'Non-Travel']
+    genders = ['Male', 'Female']
+    
+    for _ in range(num_records):
+        # Generate basic demographics with safe ranges
+        age = np.random.randint(18, 60)
+        gender = random.choice(genders)
+        
+        # Generate job-related attributes with logical relationships
+        department = random.choice(departments)
+        if department == 'Sales':
+            job_role = random.choice(['Sales Executive', 'Sales Representative', 'Manager'])
+        elif department == 'Research & Development':
+            job_role = random.choice(['Research Scientist', 'Laboratory Technician', 
+                                    'Manufacturing Director', 'Healthcare Representative',
+                                    'Research Director', 'Manager'])
+        else:
+            job_role = 'Human Resources'
+            
+        job_level = np.random.randint(1, 6) if job_role in ['Manager', 'Research Director', 'Manufacturing Director'] else np.random.randint(1, 4)
+        
+        # Generate compensation with relationship to job level
+        base_income = 1000 + job_level * 1500
+        monthly_income = int(np.random.normal(base_income, base_income*0.3))
+        monthly_income = max(1000, min(20000, monthly_income))
+        
+        daily_rate = int(np.random.normal(800, 300))
+        daily_rate = max(100, min(1500, daily_rate))
+        
+        # Generate work history with relationship to age (with safe minimums)
+        total_working_years = max(1, min(age-18, int(np.random.normal(age-22, 5))))
+        years_at_company = max(1, min(total_working_years, int(np.random.normal(total_working_years*0.7, 3))))
+        
+        # Generate satisfaction metrics
+        env_satisfaction = np.random.randint(1, 5)
+        job_satisfaction = np.random.randint(1, 5)
+        
+        # Generate attrition with some relationship to satisfaction and income
+        attrition_prob = 0.16
+        if env_satisfaction < 2 or job_satisfaction < 2:
+            attrition_prob += 0.2
+        if monthly_income < 3000:
+            attrition_prob += 0.1
+            
+        attrition = 'Yes' if random.random() < attrition_prob else 'No'
+        
+        # Calculate years-related metrics with safe ranges
+        years_in_current_role = min(years_at_company, np.random.randint(1, 10))
+        years_since_last_promotion = np.random.randint(0, min(15, years_at_company))
+        years_with_curr_manager = np.random.randint(0, min(10, years_at_company))
+        
+        # Add all generated data to the dictionary
+        data['Age'].append(age)
+        data['Attrition'].append(attrition)
+        data['BusinessTravel'].append(random.choice(business_travel))
+        data['DailyRate'].append(daily_rate)
+        data['Department'].append(department)
+        data['DistanceFromHome'].append(np.random.randint(1, 30))
+        data['Education'].append(np.random.randint(1, 5))
+        data['EducationField'].append(random.choice(education_fields))
+        data['EmployeeCount'].append(1)
+        data['EmployeeNumber'].append(np.random.randint(2000, 10000))
+        data['EnvironmentSatisfaction'].append(env_satisfaction)
+        data['Gender'].append(gender)
+        data['HourlyRate'].append(int(daily_rate / 8 * np.random.uniform(0.8, 1.2)))
+        data['JobInvolvement'].append(np.random.randint(1, 5))
+        data['JobLevel'].append(job_level)
+        data['JobRole'].append(job_role)
+        data['JobSatisfaction'].append(job_satisfaction)
+        data['MaritalStatus'].append(random.choice(marital_statuses))
+        data['MonthlyIncome'].append(monthly_income)
+        data['MonthlyRate'].append(int(monthly_income * np.random.uniform(0.8, 1.5)))
+        data['NumCompaniesWorked'].append(np.random.randint(0, 10))
+        data['Over18'].append('Y')
+        data['OverTime'].append(random.choice(['Yes', 'No']))
+        data['PercentSalaryHike'].append(np.random.randint(10, 25))
+        data['PerformanceRating'].append(np.random.randint(3, 5))
+        data['RelationshipSatisfaction'].append(np.random.randint(1, 5))
+        data['StandardHours'].append(80)
+        data['StockOptionLevel'].append(np.random.randint(0, 4))
+        data['TotalWorkingYears'].append(total_working_years)
+        data['TrainingTimesLastYear'].append(np.random.randint(0, 6))
+        data['WorkLifeBalance'].append(np.random.randint(1, 4))
+        data['YearsAtCompany'].append(years_at_company)
+        data['YearsInCurrentRole'].append(years_in_current_role)
+        data['YearsSinceLastPromotion'].append(years_since_last_promotion)
+        data['YearsWithCurrManager'].append(years_with_curr_manager)
+    
+    return pd.DataFrame(data)
 
-connection.commit()
-cursor.close()
-connection.close()
+# Generate 1000 records
+synthetic_data = generate_synthetic_data(1000)
 
-print("All passwords have been securely hashed.")
+# Save to CSV
+synthetic_data.to_csv('synthetic_ibm_attrition_data-deepseek.csv', index=False)

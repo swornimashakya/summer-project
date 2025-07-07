@@ -1,0 +1,27 @@
+Field,Type,Null,Key,Default,Extra
+employee_id,int,NO,PRI,NULL,auto_increment
+name,varchar(255),YES,,NULL,
+dob,date,YES,,NULL,
+age,int,YES,,NULL,
+position,varchar(255),YES,,NULL,
+department,varchar(100),YES,,NULL,
+edufield,varchar(100),YES,,NULL,
+salary,"decimal(10,2)",YES,,NULL,
+total_working_years,int,YES,,NULL,
+years_at_company,int,YES,,NULL,
+job_satisfaction,int,YES,,3,
+overtime,varchar(10),YES,,No,
+distance,int,YES,,NULL,
+date_joined,date,YES,,NULL,
+marital_status,varchar(50),YES,,NULL,
+gender,"enum('Male','Female')",YES,,NULL,
+attrition_risk,tinyint(1),YES,,NULL,
+created_at,timestamp,YES,,CURRENT_TIMESTAMP,DEFAULT_GENERATED
+updated_at,timestamp,YES,,CURRENT_TIMESTAMP,"DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+env_satisfaction,int,YES,,3,
+job_involvement,int,YES,,3,
+job_level,int,YES,,1,
+work_life_balance,int,YES,,3,
+attrition_factors,json,YES,,NULL,
+attrition_justification,text,YES,,NULL,
+attrition_probability,float,YES,,NULL,
