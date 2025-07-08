@@ -119,9 +119,31 @@
                 {% endif %}
             </td>
             <td class="py-2 px-4">
-                <!-- Keep Explanation column, but only show the explanation text -->
+                <!-- Toggleable, easy-to-read explanation from tree interpreter -->
                 <div class="mt-2 text-sm text-gray-700">
-                    {{ employee.explanation }}
+                    {% if employee.tree_explanation %}
+                        <button 
+                            class="text-blue-600 underline hover:text-blue-800 focus:outline-none"
+                            onclick="toggleExplanation('exp-{{ employee.employee_id }}')">
+                            Show Explanation
+                        </button>
+                        <div id="exp-{{ employee.employee_id }}" class="hidden mt-2 bg-gray-50 border border-gray-200 rounded p-3 text-gray-800">
+                            {% set exp = employee.tree_explanation %}
+                            {% set factors = exp.split('In this case,')[-1].strip().rstrip('.') %}
+                            <ul class="list-disc ml-5">
+                                {% for factor in factors.split(',') %}
+                                    {% if 'No significant factors' not in factor %}
+                                        <li>{{ factor.strip() }}</li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                            {% if 'No significant factors' in factors %}
+                                <span class="italic text-gray-500">No significant factors identified.</span>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <span class="italic text-gray-500">No explanation available.</span>
+                    {% endif %}
                 </div>
             </td>
             <td class="py-2 px-4 text-right">
@@ -283,5 +305,14 @@ document.getElementById('employeeDetailsModal').addEventListener('click', functi
         closeEmployeeModal();
     }
 });
+
+function toggleExplanation(id) {
+    const el = document.getElementById(id);
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
 </script>
 {% endblock %}

@@ -15,6 +15,7 @@ import json
 from collections import defaultdict
 import numpy as np
 import traceback  # For detailed error logging
+from treeinterpreter import treeinterpreter as ti
 
 app = Flask(__name__)
 
@@ -673,6 +674,7 @@ def employees():
     except Exception:
         feature_summary = [("No Data", 100.0)]
 
+    # --- Add tree interpreter explanations ---
     for emp in employees:
         try:
             risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
@@ -683,9 +685,18 @@ def employees():
             )
             emp['explanation'] = explanation
             emp['key_factors'] = []
+            # Add tree interpreter explanation
+            try:
+                tree_exp = human_readable_explanation(emp['employee_id'])
+            except Exception:
+                tree_exp = None
+            emp['tree_explanation'] = tree_exp
         except Exception as ex:
             emp['explanation'] = "No explanation available."
             emp['key_factors'] = []
+            emp['tree_explanation'] = None
+    # --- End tree interpreter explanations ---
+
     return render_template(
         "hr/employees.html", 
         employees=employees,
@@ -1486,18 +1497,93 @@ def flash_attrition_status(employee_id):
     elif emp and emp.get('attrition_risk') == 0:
         flash(f'{emp["name"]} is at low risk of attrition.', 'success')
 
-# REMOVE: calculate_global_feature_importance, group_shap_factors, group_and_map_factors, get_explanation endpoint
-# def calculate_global_feature_importance():
-#     ...
-# def group_shap_factors(factors):
-#     ...
-# def group_and_map_factors(factors, employee):
-#     ...
-# @app.route('/get_explanation/<int:employee_id>')
-# @login_required
-# @role_required('hr')
-# def get_explanation(employee_id):
-#     ...
+def explain_employee_prediction(employee_id):
+    """
+    Use treeinterpreter to explain the churn prediction for a single employee.
+    Returns a dict with prediction, bias, contributions, and feature values.
+    """
+    emp = get_employee_by_id(employee_id)
+    if not emp:
+        return None
+    X = preprocess_employee_data(emp)
+    # treeinterpreter expects numpy array
+    prediction, bias, contributions = ti.predict(model, X.values)
+    # For binary classification, take the probability for class 1 (churn)
+    pred_prob = float(prediction[0][1])
+    bias_prob = float(bias[0][1])
+    contribs = contributions[0][:,1]  # contributions for class 1
+    feature_names = X.columns.tolist()
+    feature_values = X.iloc[0].to_dict()
+    # Rank features by absolute contribution
+    ranked = sorted(
+        zip(feature_names, contribs, [feature_values[f] for f in feature_names]),
+        key=lambda x: abs(x[1]), reverse=True
+    )
+    return {
+        "employee_id": employee_id,
+        "predicted_probability": pred_prob,
+        "bias": bias_prob,
+        "contributions": [
+            {"feature": f, "contribution": float(c), "value": v}
+            for f, c, v in ranked
+        ],
+        "feature_values": feature_values
+    }
+
+def human_readable_explanation(employee_id):
+    """
+    Generate a human-readable explanation string for an employee's churn prediction.
+    """
+    emp = get_employee_by_id(employee_id)
+    if not emp:
+        return "Employee not found."
+    explanation = explain_employee_prediction(employee_id)
+    if not explanation:
+        return "No explanation available."
+    name = emp.get('name', f"Employee {employee_id}")
+    pred_pct = int(round(explanation["predicted_probability"] * 100))
+    bias_pct = int(round(explanation["bias"] * 100))
+    top_factors = explanation["contributions"][:3]
+    factor_phrases = []
+    for f in top_factors:
+        if abs(f["contribution"]) < 0.01:
+            continue
+        pct = int(round(f["contribution"] * 100))
+        if pct == 0:
+            continue
+        direction = "increased" if pct > 0 else "decreased"
+        # Try to make feature names readable
+        fname = f["feature"].replace("_", " ").replace("Dept_", "Department: ").replace("JobRole_", "Job Role: ").replace("EduField_", "Education Field: ").replace("MaritalStatus_", "Marital Status: ")
+        factor_phrases.append(f"{fname} ({f['value']}) {direction} the risk by {abs(pct)}%")
+    if not factor_phrases:
+        factors_str = "No significant factors identified."
+    else:
+        factors_str = ", ".join(factor_phrases)
+    return (
+        f"{name} has a {pred_pct}% chance of leaving the company. "
+        f"On average, employees have a {bias_pct}% chance of leaving. "
+        f"In this case, {factors_str}."
+    )
+
+@app.route('/explain/<int:employee_id>')
+@login_required
+@role_required('hr')
+def explain_view(employee_id):
+    explanation = explain_employee_prediction(employee_id)
+    emp = get_employee_by_id(employee_id)
+    if not explanation or not emp:
+        flash("Explanation not available.", "error")
+        return redirect(url_for('employees'))
+    readable = human_readable_explanation(employee_id)
+    # Optionally, render a template. For now, return as JSON for demo:
+    return jsonify({
+        "employee": emp.get('name', f"Employee {employee_id}"),
+        "predicted_probability": explanation["predicted_probability"],
+        "bias": explanation["bias"],
+        "contributions": explanation["contributions"],
+        "feature_values": explanation["feature_values"],
+        "human_readable": readable
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
