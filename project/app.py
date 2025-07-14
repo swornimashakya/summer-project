@@ -218,19 +218,28 @@ def predict_attrition_for_employee(employee_id):
     emp = get_employee_by_id(employee_id)
     if not emp:
         return
-    X = preprocess_employee_data(emp)
-    prediction = int(model.predict(X)[0])
-    
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    cursor.execute("""
-        UPDATE employees
-        SET attrition_risk = %s
-        WHERE employee_id = %s
-    """, (prediction, employee_id))
-    connection.commit()
-    cursor.close()
-    connection.close()
+    try:
+        X = preprocess_employee_data(emp)
+        prediction = int(model.predict(X)[0])
+        # Calculate probability (assume model has predict_proba)
+        try:
+            probability = float(model.predict_proba(X)[0][1])
+        except Exception as e:
+            print(f"Error in predict_proba for employee {employee_id}: {e}")
+            probability = None
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("""
+            UPDATE employees
+            SET attrition_risk = %s, attrition_probability = %s
+            WHERE employee_id = %s
+        """, (prediction, probability, employee_id))
+        connection.commit()
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        print(f"Attrition prediction failed for employee {employee_id}: {e}")
 
 def predict_attrition_for_all():
     """Predict attrition for all employees and update the database."""
@@ -240,11 +249,16 @@ def predict_attrition_for_all():
     for emp in employees:
         X = preprocess_employee_data(emp)
         prediction = int(model.predict(X)[0])
+        # Calculate probability
+        try:
+            probability = float(model.predict_proba(X)[0][1])
+        except Exception:
+            probability = None
         cursor.execute("""
             UPDATE employees
-            SET attrition_risk = %s
+            SET attrition_risk = %s, attrition_probability = %s
             WHERE employee_id = %s
-        """, (prediction, emp['employee_id']))
+        """, (prediction, probability, emp['employee_id']))
     connection.commit()
     cursor.close()
     connection.close()
@@ -674,18 +688,19 @@ def employees():
     except Exception:
         feature_summary = [("No Data", 100.0)]
 
-    # --- Add tree interpreter explanations ---
     for emp in employees:
         try:
             risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
-            probability = float(emp.get('attrition_probability', 0)) * 100 if emp.get('attrition_probability') else 0
+            probability = float(emp.get('attrition_probability', 0)) * 100 if emp.get('attrition_probability') is not None else 0
             name = emp.get('name', 'This employee')
             explanation = (
-                f"{name} is predicted to be at {risk_level} of attrition."
+                f"{name} is predicted to be at {risk_level} of attrition "
+                f"with probability {probability:.2f}%."
             )
             emp['explanation'] = explanation
             emp['key_factors'] = []
-            # Add tree interpreter explanation
+            emp['attrition_probability_percent'] = f"{probability:.2f}%"
+            # --- Add tree interpreter explanation ---
             try:
                 tree_exp = human_readable_explanation(emp['employee_id'])
             except Exception:
@@ -694,9 +709,8 @@ def employees():
         except Exception as ex:
             emp['explanation'] = "No explanation available."
             emp['key_factors'] = []
+            emp['attrition_probability_percent'] = "N/A"
             emp['tree_explanation'] = None
-    # --- End tree interpreter explanations ---
-
     return render_template(
         "hr/employees.html", 
         employees=employees,
@@ -728,12 +742,32 @@ def add_employee():
         last_id = cursor.fetchone()[0] or 0
         employee_id = last_id + 1
 
-        # Insert default values for other fields
+        # Insert default values for other fields required by the model
+        # These should match the model's expected columns
+        default_fields = {
+            'dob': '1990-01-01',
+            'edufield': 'Medical',
+            'total_working_years': years_at_company,
+            'overtime': 'No',
+            'distance': 5,
+            'marital_status': 'Single',
+            'gender': 'Male',
+            'env_satisfaction': 3,
+            'job_involvement': 3,
+            'job_satisfaction': 3,
+            'work_life_balance': 3
+        }
 
         cursor.execute(
-            "INSERT INTO employees (employee_id, name, position, department, salary, years_at_company) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
-            (employee_id, name, position, department, salary, years_at_company)
+            "INSERT INTO employees (employee_id, name, position, department, salary, years_at_company, dob, edufield, total_working_years, overtime, distance, marital_status, gender, env_satisfaction, job_involvement, job_satisfaction, work_life_balance) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                employee_id, name, position, department, salary, years_at_company,
+                default_fields['dob'], default_fields['edufield'], default_fields['total_working_years'],
+                default_fields['overtime'], default_fields['distance'], default_fields['marital_status'],
+                default_fields['gender'], default_fields['env_satisfaction'], default_fields['job_involvement'],
+                default_fields['job_satisfaction'], default_fields['work_life_balance']
+            )
         )
         # --- Create user account for the new employee ---
         # Generate a unique email for the employee
@@ -876,42 +910,53 @@ def applicant_action():
     if action == 'hire':
         salary = request.form.get('salary')
         date_joined = request.form.get('date_joined')
-        # Calculate age using calculate_age()
         dob = applicant.get('dob')
         age = calculate_age(dob)
-        # Calculate years at company from date_joined
         date_joined_obj = datetime.strptime(date_joined, '%Y-%m-%d')
         today = datetime.today()
         years_at_company = today.year - date_joined_obj.year - ((today.month, today.day) < (date_joined_obj.month, date_joined_obj.day))
 
-        # Insert into employees with age, years_at_company, salary
-        # Set default value 4 for env_satisfaction, job_involvement, job_satisfaction, work_life_balance
+        # Insert into employees with all fields required by the model
         cursor.execute("SELECT MAX(employee_id) FROM employees")
         last_id = cursor.fetchone()['MAX(employee_id)'] or 0
         employee_id = last_id + 1
+        # Set defaults for missing fields
+        env_satisfaction = applicant.get('env_satisfaction', 3)
+        job_involvement = applicant.get('job_involvement', 3)
+        job_satisfaction = applicant.get('job_satisfaction', 3)
+        work_life_balance = applicant.get('work_life_balance', 3)
+        overtime = applicant.get('overtime', 'No')
+        distance = applicant.get('distance', 5)
+        marital_status = applicant.get('marital_status', 'Single')
+        gender = applicant.get('gender', 'Male')
+        edufield = applicant.get('edufield', 'Medical')
+        total_working_years = applicant.get('total_working_years', years_at_company)
+        position = applicant.get('position', '')
+        department = applicant.get('department', '')
+
         cursor.execute(
             "INSERT INTO employees (employee_id, name, position, department, salary, date_joined, edufield, total_working_years, overtime, distance, marital_status, gender, dob, age, years_at_company, env_satisfaction, job_involvement, job_satisfaction, work_life_balance) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 employee_id,
                 applicant['name'],
-                applicant['position'],
-                applicant['department'],
+                position,
+                department,
                 salary,
                 date_joined,
-                applicant.get('edufield', ''),
-                applicant.get('total_working_years', 0),
-                applicant.get('overtime', 'No'),
-                applicant.get('distance', 0),
-                applicant.get('marital_status', ''),
-                applicant.get('gender', ''),
-                applicant.get('dob', None),
+                edufield,
+                total_working_years,
+                overtime,
+                distance,
+                marital_status,
+                gender,
+                dob,
                 age,
                 years_at_company,
-                4,  # env_satisfaction
-                4,  # job_involvement
-                4,  # job_satisfaction
-                4   # work_life_balance
+                env_satisfaction,
+                job_involvement,
+                job_satisfaction,
+                work_life_balance
             )
         )
         # Create user account
@@ -934,7 +979,15 @@ def applicant_action():
         # Update applicant status to 'Hired'
         cursor.execute("UPDATE applicants SET status = %s WHERE reg_id = %s", ('Hired', reg_id))
         connection.commit()
-        # Predict attrition for the new employee
+        # --- Ensure all fields are set before prediction ---
+        # Fetch and update age/years_at_company if needed (redundant, but safe)
+        cursor.execute("""
+            UPDATE employees
+            SET age = %s, years_at_company = %s
+            WHERE employee_id = %s
+        """, (age, years_at_company, employee_id))
+        connection.commit()
+        # --- Predict attrition and probability ---
         predict_attrition_for_employee(employee_id)
         cursor.close()
         connection.close()
@@ -1498,23 +1551,16 @@ def flash_attrition_status(employee_id):
         flash(f'{emp["name"]} is at low risk of attrition.', 'success')
 
 def explain_employee_prediction(employee_id):
-    """
-    Use treeinterpreter to explain the churn prediction for a single employee.
-    Returns a dict with prediction, bias, contributions, and feature values.
-    """
     emp = get_employee_by_id(employee_id)
     if not emp:
         return None
     X = preprocess_employee_data(emp)
-    # treeinterpreter expects numpy array
     prediction, bias, contributions = ti.predict(model, X.values)
-    # For binary classification, take the probability for class 1 (churn)
     pred_prob = float(prediction[0][1])
     bias_prob = float(bias[0][1])
-    contribs = contributions[0][:,1]  # contributions for class 1
+    contribs = contributions[0][:,1]
     feature_names = X.columns.tolist()
     feature_values = X.iloc[0].to_dict()
-    # Rank features by absolute contribution
     ranked = sorted(
         zip(feature_names, contribs, [feature_values[f] for f in feature_names]),
         key=lambda x: abs(x[1]), reverse=True
@@ -1531,18 +1577,12 @@ def explain_employee_prediction(employee_id):
     }
 
 def human_readable_explanation(employee_id):
-    """
-    Generate a human-readable explanation string for an employee's churn prediction.
-    """
     emp = get_employee_by_id(employee_id)
     if not emp:
         return "Employee not found."
     explanation = explain_employee_prediction(employee_id)
     if not explanation:
         return "No explanation available."
-    name = emp.get('name', f"Employee {employee_id}")
-    pred_pct = int(round(explanation["predicted_probability"] * 100))
-    bias_pct = int(round(explanation["bias"] * 100))
     top_factors = explanation["contributions"][:3]
     factor_phrases = []
     for f in top_factors:
@@ -1552,38 +1592,13 @@ def human_readable_explanation(employee_id):
         if pct == 0:
             continue
         direction = "increased" if pct > 0 else "decreased"
-        # Try to make feature names readable
         fname = f["feature"].replace("_", " ").replace("Dept_", "Department: ").replace("JobRole_", "Job Role: ").replace("EduField_", "Education Field: ").replace("MaritalStatus_", "Marital Status: ")
         factor_phrases.append(f"{fname} ({f['value']}) {direction} the risk by {abs(pct)}%")
     if not factor_phrases:
         factors_str = "No significant factors identified."
     else:
         factors_str = ", ".join(factor_phrases)
-    return (
-        f"{name} has a {pred_pct}% chance of leaving the company. "
-        f"On average, employees have a {bias_pct}% chance of leaving. "
-        f"In this case, {factors_str}."
-    )
-
-@app.route('/explain/<int:employee_id>')
-@login_required
-@role_required('hr')
-def explain_view(employee_id):
-    explanation = explain_employee_prediction(employee_id)
-    emp = get_employee_by_id(employee_id)
-    if not explanation or not emp:
-        flash("Explanation not available.", "error")
-        return redirect(url_for('employees'))
-    readable = human_readable_explanation(employee_id)
-    # Optionally, render a template. For now, return as JSON for demo:
-    return jsonify({
-        "employee": emp.get('name', f"Employee {employee_id}"),
-        "predicted_probability": explanation["predicted_probability"],
-        "bias": explanation["bias"],
-        "contributions": explanation["contributions"],
-        "feature_values": explanation["feature_values"],
-        "human_readable": readable
-    })
+    return f"In this case, {factors_str}."
 
 if __name__ == '__main__':
     app.run(debug=True)
