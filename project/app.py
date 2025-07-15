@@ -781,7 +781,7 @@ def add_employee():
 
         # Predict attrition for the new employee
         predict_attrition_for_employee(employee_id)
-        flash_attrition_status(employee_id)
+        # flash_attrition_status(employee_id)
         flash('Employee added successfully', 'success')
         return redirect(url_for('employees'))
     return render_template('hr/add_employee.html', employees=[])
@@ -1072,7 +1072,7 @@ def emp_edit_details():
         connection.close()
         # Predict attrition for this employee after update
         predict_attrition_for_employee(employee_id)
-        flash_attrition_status(employee_id)
+        # flash_attrition_status(employee_id)
         flash('Profile updated successfully.', 'success')
         return redirect(url_for('employee_view'))
 
@@ -1121,7 +1121,7 @@ def feedback_portal():
         connection.close()
         # Predict attrition for this employee after feedback update
         predict_attrition_for_employee(employee_id)
-        flash_attrition_status(employee_id)
+        # flash_attrition_status(employee_id)
         flash('Feedback submitted successfully.', 'success')
         return redirect(url_for('employee_view'))
     return render_template('emp/feedback_portal.html')
@@ -1529,13 +1529,13 @@ def update_employee_shap_explanations(employee_id):
     """Stub: SHAP explanations removed."""
     return True
 
-def flash_attrition_status(employee_id):
-    """Flash a message about the employee's attrition status after prediction."""
-    emp = get_employee_by_id(employee_id)
-    if emp and emp.get('attrition_risk') == 1:
-        flash(f'Warning: {emp["name"]} is at high risk of attrition.', 'warning')
-    elif emp and emp.get('attrition_risk') == 0:
-        flash(f'{emp["name"]} is at low risk of attrition.', 'success')
+# def flash_attrition_status(employee_id):
+#     """Flash a message about the employee's attrition status after prediction."""
+#     emp = get_employee_by_id(employee_id)
+#     if emp and emp.get('attrition_risk') == 1:
+#         flash(f'Warning: {emp["name"]} is at high risk of attrition.', 'warning')
+#     elif emp and emp.get('attrition_risk') == 0:
+#         flash(f'{emp["name"]} is at low risk of attrition.', 'success')
 
 def explain_employee_prediction(employee_id):
     emp = get_employee_by_id(employee_id)
