@@ -1567,25 +1567,51 @@ def human_readable_explanation(employee_id):
     emp = get_employee_by_id(employee_id)
     if not emp:
         return "Employee not found."
+
     explanation = explain_employee_prediction(employee_id)
     if not explanation:
         return "No explanation available."
+
     top_factors = explanation["contributions"][:3]
     factor_phrases = []
+
     for f in top_factors:
-        if abs(f["contribution"]) < 0.01:
+        contrib = f["contribution"]
+        if abs(contrib) < 0.01:
             continue
-        pct = int(round(f["contribution"] * 100))
+
+        pct = int(round(contrib * 100))
         if pct == 0:
             continue
+
         direction = "increased" if pct > 0 else "decreased"
-        fname = f["feature"].replace("_", " ").replace("Dept_", "Department: ").replace("JobRole_", "Job Role: ").replace("EduField_", "Education Field: ").replace("MaritalStatus_", "Marital Status: ")
-        factor_phrases.append(f"{fname} ({f['value']}) {direction} the risk by {abs(pct)}%")
+        feature = f["feature"]
+
+        # Format feature name
+        fname = feature.replace("_", " ")
+        replacements = {
+            "Dept_": "Department: ",
+            "JobRole_": "Job Role: ",
+            "EduField_": "Education Field: ",
+            "MaritalStatus_": "Marital Status: ",
+        }
+        for prefix, label in replacements.items():
+            if feature.startswith(prefix):
+                fname = f"{label}{feature[len(prefix):].replace('_', ' ')}"
+                break
+
+        factor_phrases.append(f"{fname} {direction} the risk by {abs(pct)}%")
+
     if not factor_phrases:
-        factors_str = "No significant factors identified."
-    else:
-        factors_str = ", ".join(factor_phrases)
-    return f"In this case, {factors_str}."
+        return "In this case, no significant factors were identified."
+
+    return f"In this case, {', '.join(factor_phrases)}."
+
+# def recalculate_all_attrition_explanations():
+#     employees = get_all_employees()
+#     for emp in employees:
+#         predict_attrition_for_employee(emp['employee_id'])
+#     print("All attrition explanations recalculated and stored.")
 
 if __name__ == '__main__':
     app.run(debug=True)
