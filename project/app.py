@@ -116,7 +116,7 @@ def get_leave_requests():
     return leave_requests
 
 def get_all_employees():
-    """Fetch all employees from the database."""
+    """Fetch all employees from the database, including attrition justification."""
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     cursor.execute("SELECT * FROM employees")
@@ -221,20 +221,25 @@ def predict_attrition_for_employee(employee_id):
     try:
         X = preprocess_employee_data(emp)
         prediction = int(model.predict(X)[0])
-        # Calculate probability (assume model has predict_proba)
         try:
             probability = float(model.predict_proba(X)[0][1])
         except Exception as e:
             print(f"Error in predict_proba for employee {employee_id}: {e}")
             probability = None
 
+        # Compute and cache explanation
+        try:
+            explanation = human_readable_explanation(employee_id)
+        except Exception:
+            explanation = None
+
         connection = get_db_connection()
         cursor = connection.cursor()
         cursor.execute("""
             UPDATE employees
-            SET attrition_risk = %s, attrition_probability = %s
+            SET attrition_risk = %s, attrition_probability = %s, attrition_justification = %s
             WHERE employee_id = %s
-        """, (prediction, probability, employee_id))
+        """, (prediction, probability, explanation, employee_id))
         connection.commit()
         cursor.close()
         connection.close()
@@ -242,26 +247,10 @@ def predict_attrition_for_employee(employee_id):
         print(f"Attrition prediction failed for employee {employee_id}: {e}")
 
 def predict_attrition_for_all():
-    """Predict attrition for all employees and update the database."""
+    """Predict attrition for all employees and update the database, including explanations."""
     employees = get_all_employees()
-    connection = get_db_connection()
-    cursor = connection.cursor()
     for emp in employees:
-        X = preprocess_employee_data(emp)
-        prediction = int(model.predict(X)[0])
-        # Calculate probability
-        try:
-            probability = float(model.predict_proba(X)[0][1])
-        except Exception:
-            probability = None
-        cursor.execute("""
-            UPDATE employees
-            SET attrition_risk = %s, attrition_probability = %s
-            WHERE employee_id = %s
-        """, (prediction, probability, emp['employee_id']))
-    connection.commit()
-    cursor.close()
-    connection.close()
+        predict_attrition_for_employee(emp['employee_id'])
 
 def get_remaining_leave_days(employee_id, leave_type):
     """Calculate remaining leave days for a specific type of leave."""
@@ -690,22 +679,20 @@ def employees():
 
     for emp in employees:
         try:
-            risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
-            probability = float(emp.get('attrition_probability', 0)) * 100 if emp.get('attrition_probability') is not None else 0
-            name = emp.get('name', 'This employee')
-            explanation = (
-                f"{name} is predicted to be at {risk_level} of attrition "
-                f"with probability {probability:.2f}%."
-            )
+            explanation = emp.get('attrition_justification')
+            if not explanation:
+                risk_level = 'high risk' if emp.get('attrition_risk') == 1 else 'low risk'
+                probability = float(emp.get('attrition_probability', 0)) * 100 if emp.get('attrition_probability') is not None else 0
+                name = emp.get('name', 'This employee')
+                explanation = (
+                    f"{name} is predicted to be at {risk_level} of attrition "
+                    f"with probability {probability:.2f}%."
+                )
             emp['explanation'] = explanation
             emp['key_factors'] = []
-            emp['attrition_probability_percent'] = f"{probability:.2f}%"
-            # --- Add tree interpreter explanation ---
-            try:
-                tree_exp = human_readable_explanation(emp['employee_id'])
-            except Exception:
-                tree_exp = None
-            emp['tree_explanation'] = tree_exp
+            emp['attrition_probability_percent'] = f"{float(emp.get('attrition_probability', 0)) * 100:.2f}%" if emp.get('attrition_probability') is not None else "N/A"
+            # Set tree_explanation to the explanation for template compatibility
+            emp['tree_explanation'] = explanation
         except Exception as ex:
             emp['explanation'] = "No explanation available."
             emp['key_factors'] = []
@@ -760,7 +747,7 @@ def add_employee():
 
         cursor.execute(
             "INSERT INTO employees (employee_id, name, position, department, salary, years_at_company, dob, edufield, total_working_years, overtime, distance, marital_status, gender, env_satisfaction, job_involvement, job_satisfaction, work_life_balance) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 employee_id, name, position, department, salary, years_at_company,
                 default_fields['dob'], default_fields['edufield'], default_fields['total_working_years'],
