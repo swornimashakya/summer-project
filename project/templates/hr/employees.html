@@ -7,7 +7,26 @@
 {% endblock %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-4">
+<div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-2">
+    <div class="mb-2 md:mb-0">
+        <span class="inline-block bg-blue-50 text-blue-800 px-4 py-2 rounded shadow text-lg font-medium">
+            Total Employees: <span class="font-bold">{{ employees|length }}</span>
+        </span>
+    </div>
+    <div class="flex items-center gap-2">
+        <select id="filterColumn" class="border rounded px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="1">Name</option>
+            <option value="2">Position</option>
+            <option value="3">Department</option>
+            <option value="4">Age</option>
+            <option value="5">Salary</option>
+            <option value="6">Years at Company</option>
+            <option value="7">Attrition</option>
+            <option value="8">Risk Probability</option>
+            <option value="9">Explanation</option>
+        </select>
+        <input id="employeeSearch" type="text" placeholder="Search..." class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" onkeyup="filterEmployees()">
+    </div>
     <!-- Add Employee Button (hidden for now) -->
     <!--
     <a href="{{ url_for('add_employee') }}" class="bg-[#4285F4] text-white px-4 py-2 rounded hover:bg-blue-700">
@@ -27,12 +46,12 @@
     {% endwith %}
 </div>
 
-<!-- Employee Stats -->
+<!-- Employee Stats
 <div class="mb-4">
     <span class="inline-block bg-blue-50 text-blue-800 px-4 py-2 rounded shadow text-lg font-medium">
         Total Employees: <span class="font-bold">{{ employees|length }}</span>
     </span>
-</div>
+</div> -->
 
 <!-- Feature Importance Summary -->
 <div class="mb-8 bg-white rounded-lg shadow p-6">
@@ -217,8 +236,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const featureData = {
-    labels: [{% for feature, importance in feature_summary %}"{{ feature | safe }}",{% endfor %}],
-    values: [{% for feature, importance in feature_summary %}{{ importance|round(2) }},{% endfor %}]
+    labels: [{% for feature, importance in feature_summary %}"{{ feature | safe }}"{% if not loop.last %},{% endif %}{% endfor %}],
+    values: [{% for feature, importance in feature_summary %}{{ importance|round(2) }}{% if not loop.last %},{% endif %}{% endfor %}]
 };
 const ctx = document.getElementById('featuresChart').getContext('2d');
 new Chart(ctx, {
@@ -323,6 +342,30 @@ function toggleExplanation(id) {
     } else {
         el.classList.add('hidden');
     }
+}
+
+function filterEmployees() {
+    var input = document.getElementById('employeeSearch');
+    var filter = input.value.toLowerCase();
+    var table = document.querySelector('table');
+    var trs = table.getElementsByTagName('tr');
+    var filterColumn = document.getElementById('filterColumn').value;
+    for (var i = 1; i < trs.length; i++) { // skip header row
+        var tds = trs[i].getElementsByTagName('td');
+        if (tds.length === 0) continue;
+        var cellText = tds[filterColumn].textContent.toLowerCase();
+        if (cellText.indexOf(filter) > -1) {
+            trs[i].style.display = '';
+        } else {
+            trs[i].style.display = 'none';
+        }
+    }
+}
+// Update filter on dropdown change
+if (document.getElementById('filterColumn')) {
+    document.getElementById('filterColumn').addEventListener('change', function() {
+        filterEmployees();
+    });
 }
 </script>
 {% endblock %}
