@@ -16,8 +16,3 @@ A web application that predicts employee turnover risk and provides HR analytics
 | Backend        | Python, Flask |
 | Database       | MySQL |
 | Machine Learning | scikit-learn (Random Forest) |
-
-## Setup
-1. Clone repository:
-```bash
-git clone https://github.com/your-repo/employee-attrition.git
